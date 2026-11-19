@@ -1,4 +1,7 @@
-# CasPrepared
+<div align="center">
+<img width="256" height="256" alt="Expie box" src="https://github.com/user-attachments/assets/ceaed8ab-9aaa-48d8-902c-4b7450657f84" />
+</div>
+  # CasPrepared
 
 Addon for **CU** multiplayer mod (**Casualties: Together**). After spawning, each player gets a loadout menu once per campaign. They pick items within a budget, and game delivers them in a temporary supply crate.
 
