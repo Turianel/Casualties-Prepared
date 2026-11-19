@@ -46,5 +46,9 @@ The same settings are stored in `BepInEx/config/com.casprepared.loadout.cfg`.
 3. Run `dotnet build CasPrepared`. The DLL is copied to `BepInEx/plugins/CasPrepared`.
 
 ## License
-
 MIT, see [LICENSE](LICENSE).
+
+## Additional info from author
+
+This mod was created using AI, and I will never hide that fact. I have the utmost respect for old-school modders and programmers who don’t use AI; I simply lack those specific skills and that particular mindset—but I do have ideas that I want to bring to life.
+If anyone likes the mod and wants to rewrite it by hand, I have no objection—in fact, I’d be happy if they did.
