@@ -1,13 +1,13 @@
 # CasPrepared
 
-A BepInEx 5 mod for **Casualties: Unknown** multiplayer (**Casualties: Together**). After spawning, each player gets a loadout menu once per campaign. They pick items within a budget, and the host delivers them in a temporary supply crate.
+Addon for **CU** multiplayer mod (**Casualties: Together**). After spawning, each player gets a loadout menu once per campaign. They pick items within a budget, and game delivers them in a temporary supply crate.
 
 ## Features
 
 - **Loadout menu.** Searchable item catalog with categories, a selection list, the budget and the loadout cost. The Spawn button is blocked when the cost exceeds the budget.
 - **Prices.** Each item costs its trader price times a host-adjustable multiplier (default 1.0).
 - **Host-authoritative.** Every purchase is a request to the host over Casualties: Together. The host validates it and spawns the items at the player's position.
-- **Supply crate.** Items arrive in a temporary crate that cannot be carried or worn and glows faintly blue. It decays after 5 minutes by default, and its contents drop on the floor.
+- **Supply crate.** Items arrive in a temporary crate that cannot be carried or worn. It decays after 5 minutes by default, and its contents drop on the floor.
 - **Once per campaign.** The host records players by SteamID, and the records are saved with the campaign.
 - **Spawn window.** The menu closes after a time limit (can be turned off) or when the player moves too far from the spawn point.
 - **Achievements disabled.** While the mod is active, achievements are disabled the same way Together does it for `sv_cheats`, without unlocking cheat commands.
@@ -15,7 +15,7 @@ A BepInEx 5 mod for **Casualties: Unknown** multiplayer (**Casualties: Together*
 
 ## Requirements
 
-- BepInEx 5
+- [BepInEx](https://github.com/bepinex/bepinex)
 - [CUCoreLib](https://github.com/jimmyking9999999/CUCoreLib)
 - [Casualties: Together](https://github.com/creaturefeaturelarry/casualties-together)
 
