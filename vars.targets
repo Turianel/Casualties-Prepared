@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+    <!-- Output .dll name -->
+    <ProjectName>CasPrepared</ProjectName>
+
+    <!-- Game install folder (full release, with BepInEx, CUCoreLib and Casualties: Together installed) -->
+    <ManualBaseGamePath>E:\STEAM\steamapps\common\Casualties Unknown</ManualBaseGamePath>
+
+    <BaseGamePath Condition="'$(BaseGamePath)' == '' and '$(ManualBaseGamePath)' != ''">$(ManualBaseGamePath)</BaseGamePath>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <BepInExDir Condition="'$(BepInExDir)' == '' and '$(BaseGamePath)' != ''">$(BaseGamePath)\BepInEx</BepInExDir>
+    <GameAssembliesDir Condition="'$(GameAssembliesDir)' == '' and '$(BaseGamePath)' != ''">$(BaseGamePath)\CasualtiesUnknown_Data\Managed</GameAssembliesDir>
+    <CUCoreLibDllPath Condition="'$(CUCoreLibDllPath)' == ''">$(BepInExDir)\plugins\CUCoreLib.dll</CUCoreLibDllPath>
+    <TogetherDir Condition="'$(TogetherDir)' == ''">$(BepInExDir)\plugins\Together</TogetherDir>
+  </PropertyGroup>
+</Project>
