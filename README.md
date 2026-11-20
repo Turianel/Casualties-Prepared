@@ -43,7 +43,7 @@ Settings can always be changed in the main menu. During a running campaign they 
 
 The same settings are stored in `BepInEx/config/com.casprepared.loadout.cfg`.
 
-## Standalone (single-player) version
+## Standalone (single-player) version [HERE](https://github.com/Turianel/Casualties-Prepared/releases/tag/Standalone)
 
 `CasPreparedStandalone` is a separate build for single-player runs. It needs only BepInEx and CUCoreLib, not Casualties: Together.
 
