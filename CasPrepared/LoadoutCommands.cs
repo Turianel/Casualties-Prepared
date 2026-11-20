@@ -1,16 +1,27 @@
 using System;
 using System.Globalization;
 using CUCoreLib.Registries;
+#if !STANDALONE
 using Together;
+#endif
 
 namespace CasPrepared
 {
-    /// <summary>In-game console commands. Setters are host-only; values persist in the BepInEx config.</summary>
+    /// <summary>In-game console commands. Values persist in the BepInEx config.
+    /// Multiplayer: setters are host-only. Standalone: setters work only outside a run.</summary>
     internal static class LoadoutCommands
     {
+#if STANDALONE
+        private const string Prefix = "CasPrepared: ";
+        private const string EnableHelp = "CasPrepared: show or set whether the loadout menu is on for new runs.";
+#else
+        private const string Prefix = "CasPrepared (host): ";
+        private const string EnableHelp = "CasPrepared (host): show or set whether the loadout menu is on for sessions you host.";
+#endif
+
         public static void Register()
         {
-            ConsoleCommandRegistry.Register("casprep_enable", "CasPrepared (host): show or set whether the loadout menu is on for sessions you host.",
+            ConsoleCommandRegistry.Register("casprep_enable", EnableHelp,
                 args =>
                 {
                     if (args.Length >= 2)
@@ -18,10 +29,15 @@ namespace CasPrepared
                         RequireConfigAccess();
                         ModConfig.Enabled.Value = ParseBool(args[1]);
                     }
+#if STANDALONE
+                    Log("Loadout menu: " + (ModConfig.Enabled.Value ? "ON (achievements are disabled for new runs)" : "OFF"));
+#else
                     Log("Loadout menu: " + (ModConfig.Enabled.Value ? "ON (achievements are disabled while hosting)" : "OFF"));
+#endif
                 },
                 null, ("bool value", "on/off, true/false or 1/0."));
 
+#if !STANDALONE
             ConsoleCommandRegistry.Register("casprep_cheats", "CasPrepared: show whether Together cheat rules allow casprep_giveloadout.",
                 args =>
                 {
@@ -46,15 +62,17 @@ namespace CasPrepared
                     LoadoutClient.Give(target);
                 },
                 null, ("target", "Optional player name or SteamID. Omit for yourself."));
+#endif
 
-            ConsoleCommandRegistry.Register("casprep_budget", "CasPrepared (host): show or set the loadout budget.",
+            ConsoleCommandRegistry.Register("casprep_budget", Prefix + "show or set the loadout budget.",
                 args => IntSetting(args, "Budget", v => ModConfig.Budget.Value = v, () => ModConfig.Budget.Value),
                 null, ("int value", "New budget. Omit to show the current value."));
 
-            ConsoleCommandRegistry.Register("casprep_mult", "CasPrepared (host): show or set the price multiplier.",
+            ConsoleCommandRegistry.Register("casprep_mult", Prefix + "show or set the price multiplier.",
                 args => FloatSetting(args, "Price multiplier", v => ModConfig.PriceMultiplier.Value = v, () => ModConfig.PriceMultiplier.Value),
                 null, ("float value", "Multiplier for trader prices (1.0 = trader price)."));
 
+#if !STANDALONE
             ConsoleCommandRegistry.Register("casprep_window", "CasPrepared (host): show or set how long (seconds) the menu stays available after spawn. 0 or off disables the timer.",
                 args =>
                 {
@@ -63,15 +81,26 @@ namespace CasPrepared
                     if (ModConfig.WindowSeconds.Value <= 0) Log("Time limit is off: only the distance limit applies.");
                 },
                 null, ("int seconds", "Window length in seconds. 0 / off = no time limit."));
+#endif
 
-            ConsoleCommandRegistry.Register("casprep_radius", "CasPrepared (host): show or set how far (tiles) a player may move from spawn before the menu closes.",
+            ConsoleCommandRegistry.Register("casprep_radius", Prefix + "show or set how far (tiles) a player may move from spawn before the menu closes.",
                 args => FloatSetting(args, "Max distance", v => ModConfig.MaxDistance.Value = v, () => ModConfig.MaxDistance.Value),
                 null, ("float distance", "Distance in world units."));
 
-            ConsoleCommandRegistry.Register("casprep_cratetime", "CasPrepared (host): show or set the supply crate lifetime in seconds.",
+            ConsoleCommandRegistry.Register("casprep_cratetime", Prefix + "show or set the supply crate lifetime in seconds.",
                 args => IntSetting(args, "Crate lifetime", v => ModConfig.CrateLifetimeSeconds.Value = v, () => ModConfig.CrateLifetimeSeconds.Value),
                 null, ("int seconds", "Lifetime in seconds."));
 
+#if STANDALONE
+            ConsoleCommandRegistry.Register("casprep_status", "CasPrepared: show settings and the loadout state of this run.",
+                args =>
+                {
+                    Log("Loadout menu: " + (ModConfig.Enabled.Value ? "ON" : "OFF"));
+                    Log($"Budget {ModConfig.Budget.Value}, multiplier x{ModConfig.PriceMultiplier.Value.ToString("0.##", CultureInfo.InvariantCulture)}, " +
+                        $"radius {ModConfig.MaxDistance.Value.ToString("0.#", CultureInfo.InvariantCulture)}, crate {ModConfig.CrateLifetimeSeconds.Value}s");
+                    Log("This run: " + LoadoutClient.DescribeState());
+                });
+#else
             ConsoleCommandRegistry.Register("casprep_status", "CasPrepared (host): list players and their loadout state.",
                 args =>
                 {
@@ -91,6 +120,7 @@ namespace CasPrepared
                     Log($"Reset {LoadoutServer.Reset(target)} record(s) for '{target}'.");
                 },
                 null, ("target", "Player name, SteamID or 'all'."));
+#endif
 
             ConsoleCommandRegistry.Register("casprep_menu", "CasPrepared: open/close the loadout menu.",
                 args => LoadoutClient.ToggleMenu());
@@ -130,6 +160,7 @@ namespace CasPrepared
             }
         }
 
+#if !STANDALONE
         private static bool IsOff(string s)
         {
             switch (s.Trim().ToLowerInvariant())
@@ -140,7 +171,17 @@ namespace CasPrepared
         }
 
         private static string OnOff(bool v) => v ? "on" : "off";
+#endif
 
+#if STANDALONE
+        /// <summary>Settings change only outside a run (main menu / character select).</summary>
+        public static string ConfigLockReason()
+        {
+            if (WorldGeneration.world != null)
+                return "Settings are locked during a run. Change them in the main menu.";
+            return null;
+        }
+#else
         /// <summary>
         /// Settings can change freely in the main menu. During a running multiplayer campaign
         /// they are locked unless sv_cheats is on (same gate as Together's cheat commands).
@@ -153,15 +194,16 @@ namespace CasPrepared
             return null;
         }
 
+        private static void RequireHost()
+        {
+            if (Net.IsRunning && !Net.IsServer) throw new Exception("Host only.");
+        }
+#endif
+
         private static void RequireConfigAccess()
         {
             var reason = ConfigLockReason();
             if (reason != null) throw new Exception(reason);
-        }
-
-        private static void RequireHost()
-        {
-            if (Net.IsRunning && !Net.IsServer) throw new Exception("Host only.");
         }
 
         private static void Log(string text)

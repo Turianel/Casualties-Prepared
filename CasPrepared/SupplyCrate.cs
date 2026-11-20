@@ -2,7 +2,9 @@ using CUCoreLib.Data;
 using CUCoreLib.Helpers;
 using CUCoreLib.Registries;
 using HarmonyLib;
+#if !STANDALONE
 using Together;
+#endif
 using System;
 using System.Linq;
 using System.Reflection;
@@ -80,7 +82,9 @@ namespace CasPrepared
             if (_item == null) return;
             CrateGlow.Animate(_glow, _item.condition);
             // Host is authoritative; clients just follow the synced destruction.
+#if !STANDALONE
             if (Net.IsRunning && !Net.IsServer) return;
+#endif
 
             _elapsed += Time.deltaTime;
             // Condition doubles as a visible countdown ("Supply Crate (42%)").

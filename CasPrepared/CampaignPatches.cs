@@ -12,7 +12,9 @@ namespace CasPrepared
     {
         private static void Postfix()
         {
+#if !STANDALONE
             LoadoutServer.OnNewWorld();
+#endif
             LoadoutClient.ResetLocal();
         }
     }

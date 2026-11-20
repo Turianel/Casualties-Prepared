@@ -43,11 +43,26 @@ Settings can always be changed in the main menu. During a running campaign they 
 
 The same settings are stored in `BepInEx/config/com.casprepared.loadout.cfg`.
 
+## Standalone (single-player) version
+
+`CasPreparedStandalone` is a separate build for single-player runs. It needs only BepInEx and CUCoreLib, not Casualties: Together.
+
+- Same menu, catalog, budget, prices and supply crate.
+- One loadout per run, saved with the run.
+- No time limit: the menu closes only when you move too far from the spawn point or die.
+- On/off switch on the character select screen. Achievements are disabled for runs with the menu on (vanilla cheat flag).
+- Settings can be changed only outside a run. `casprep_window`, `casprep_reset`, `casprep_cheats` and `casprep_giveloadout` don't exist in this build.
+- Install either the multiplayer or the standalone build, not both. With both installed, the standalone build doesn't load.
+- If Together is installed too, the standalone build stays idle during multiplayer sessions.
+
+Settings are stored in `BepInEx/config/com.casprepared.standalone.cfg`.
+
 ## Building
 
 1. Install the game with BepInEx 5, CUCoreLib and Casualties: Together.
 2. Set `ManualBaseGamePath` in `vars.targets` to your game folder.
 3. Run `dotnet build CasPrepared`. The DLL is copied to `BepInEx/plugins/CasPrepared`.
+4. Standalone: run `dotnet build CasPrepared.Standalone`. Add `-p:DeployStandalone=true` to copy the DLL to `BepInEx/plugins/CasPreparedStandalone` (remove the multiplayer build first).
 
 ## License
 MIT, see [LICENSE](LICENSE).

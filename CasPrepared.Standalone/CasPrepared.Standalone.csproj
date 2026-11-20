@@ -1,0 +1,92 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Single-player build of CasPrepared. No Casualties: Together dependency.
+    Shares most sources with ../CasPrepared (linked below) and compiles them with STANDALONE defined;
+    networking files of the multiplayer build are replaced by the ones in this folder.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>CasPreparedStandalone</AssemblyName>
+    <RootNamespace>CasPrepared</RootNamespace>
+    <Product>CasPrepared Standalone - single-player spawn loadouts</Product>
+    <Version>1.0.0</Version>
+    <DefineConstants>$(DefineConstants);STANDALONE</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <RestoreAdditionalProjectSources>
+      https://api.nuget.org/v3/index.json;
+      https://nuget.bepinex.dev/v3/index.json;
+      https://nuget.samboy.dev/v3/index.json
+    </RestoreAdditionalProjectSources>
+  </PropertyGroup>
+
+  <Import Project="../vars.targets" />
+
+  <PropertyGroup>
+    <StandalonePluginDir>$(BepInExDir)/plugins/CasPreparedStandalone</StandalonePluginDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Standalone-only sources -->
+    <Compile Include="*.cs" />
+
+    <!-- Shared with the multiplayer build -->
+    <Compile Include="..\CasPrepared\CampaignPatches.cs" Link="Shared\CampaignPatches.cs" />
+    <Compile Include="..\CasPrepared\LoadoutCatalog.cs" Link="Shared\LoadoutCatalog.cs" />
+    <Compile Include="..\CasPrepared\LoadoutCommands.cs" Link="Shared\LoadoutCommands.cs" />
+    <Compile Include="..\CasPrepared\LoadoutOrder.cs" Link="Shared\LoadoutOrder.cs" />
+    <Compile Include="..\CasPrepared\LoadoutUI.cs" Link="Shared\LoadoutUI.cs" />
+    <Compile Include="..\CasPrepared\ModConfig.cs" Link="Shared\ModConfig.cs" />
+    <Compile Include="..\CasPrepared\PixelSkin.cs" Link="Shared\PixelSkin.cs" />
+    <Compile Include="..\CasPrepared\SupplyCrate.cs" Link="Shared\SupplyCrate.cs" />
+
+    <!-- Same resource name as the multiplayer build: CasPrepared.images.supplycrate.png -->
+    <EmbeddedResource Include="..\CasPrepared\images\**\*.png" Link="images\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BepInEx.Analyzers" Version="1.*" PrivateAssets="all" />
+    <PackageReference Include="BepInEx.Core" Version="5.*" />
+    <PackageReference Include="BepInEx.PluginInfoProps" Version="2.*" />
+    <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.2" PrivateAssets="all" />
+    <PackageReference Include="UnityEngine.Modules" Version="2022.3.62" IncludeAssets="compile" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" IncludeAssets="compile" />
+    <PackageReference Include="Lib.Harmony" Version="2.4.2" />
+
+    <Reference Include="Assembly-CSharp" Publicize="true">
+      <HintPath>$(GameAssembliesDir)/Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="CUCoreLib" Publicize="true">
+      <HintPath>$(CUCoreLibDllPath)</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Unity.RenderPipelines.Universal.Runtime">
+      <HintPath>$(GameAssembliesDir)/Unity.RenderPipelines.Universal.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- TMP font assets: fallback source of the game's pixel font -->
+    <Reference Include="Unity.TextMeshPro">
+      <HintPath>$(GameAssembliesDir)/Unity.TextMeshPro.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
+  </ItemGroup>
+
+  <Target Name="ValidatePaths" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(GameAssembliesDir)/Assembly-CSharp.dll')" Text="Assembly-CSharp.dll not found in $(GameAssembliesDir). Fix ManualBaseGamePath in vars.targets." />
+    <Error Condition="!Exists('$(CUCoreLibDllPath)')" Text="CUCoreLib.dll not found at $(CUCoreLibDllPath)." />
+  </Target>
+
+  <!-- Opt-in deploy: the standalone and multiplayer builds must not be installed together.
+       dotnet build -p:DeployStandalone=true -->
+  <Target Name="CopyToPlugins" AfterTargets="AfterBuild" Condition="'$(DeployStandalone)' == 'true'">
+    <MakeDir Directories="$(StandalonePluginDir)" />
+    <Copy SourceFiles="$(OutDir)$(AssemblyName).dll;$(OutDir)$(AssemblyName).pdb" DestinationFolder="$(StandalonePluginDir)" />
+  </Target>
+</Project>

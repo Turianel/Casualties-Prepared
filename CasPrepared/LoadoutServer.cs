@@ -287,28 +287,19 @@ namespace CasPrepared
 
             if (!(payload?[P.KeyItems] is JObject items) || !items.HasValues) return "Nothing selected.";
 
-            var order = new List<(CatalogEntry entry, int count)>();
-            long cost = 0;
-            int total = 0;
-            var mult = ModConfig.PriceMultiplier.Value;
+            // The client's payload is untrusted: parse amounts here, the shared check does the rest.
+            var selection = new List<KeyValuePair<string, int>>();
             foreach (var prop in items.Properties())
             {
-                if (!LoadoutCatalog.TryGet(prop.Name, out var entry) || !LoadoutCatalog.IsSpawnable(entry.Id))
-                    return "Item is not available: " + prop.Name;
                 int count;
                 try { count = prop.Value.Value<int>(); }
-                catch { return "Bad amount for " + entry.Name; }
-                if (count <= 0) continue;
-                if (count > LoadoutCatalog.MaxPerItem) return $"Too many of {entry.Name} (max {LoadoutCatalog.MaxPerItem}).";
-                total += count;
-                cost += LoadoutCatalog.PriceOf(entry, mult, count);
-                order.Add((entry, count));
+                catch { return "Bad amount for " + (LoadoutCatalog.TryGet(prop.Name, out var bad) ? bad.Name : prop.Name); }
+                selection.Add(new KeyValuePair<string, int>(prop.Name, count));
             }
-            if (order.Count == 0) return "Nothing selected.";
-            if (total > LoadoutCatalog.MaxTotalItems) return $"Too many items (max {LoadoutCatalog.MaxTotalItems}).";
-            if (cost > ModConfig.Budget.Value) return $"Loadout costs {cost}, budget is {ModConfig.Budget.Value}.";
+            var error = LoadoutOrder.Build(selection, out var order, out var cost, out var total);
+            if (error != null) return error;
 
-            SpawnLoadout(plr.body, order);
+            LoadoutOrder.Spawn(plr.body, order);
 
             PendingByKey.Remove(key);
             Records[key] = RecordState.Used;
@@ -316,27 +307,6 @@ namespace CasPrepared
             Plugin.Logger.LogInfo(msg);
             if (ConsoleScript.instance != null) ConsoleScript.instance.LogToConsole(msg);
             return null;
-        }
-
-        private static void SpawnLoadout(Body body, List<(CatalogEntry entry, int count)> order)
-        {
-            Vector2 pos = body.transform.position;
-            var crateGo = Utils.Create(SupplyCrate.ItemId, pos, 0f);
-            var crate = crateGo != null ? crateGo.GetComponent<Container>() : null;
-            if (crate == null) Plugin.Logger.LogWarning("Supply crate failed to spawn, items will be dropped on the floor.");
-
-            foreach (var (entry, count) in order)
-            {
-                for (int i = 0; i < count; i++)
-                {
-                    // Plain prefab spawn, same as traders do: Together registers new objects for sync.
-                    var go = Utils.Create(entry.Id, pos, 0f);
-                    LoadoutCatalog.PrepareSpawned(go);
-                    if (go == null || crate == null) continue;
-                    var item = go.GetComponent<Item>();
-                    if (item != null && crate.CanHoldItem(item)) crate.LoadItem(item);
-                }
-            }
         }
 
         // ---- GiveLoadout (cheat) ----

@@ -1,4 +1,6 @@
+#if !STANDALONE
 using Together;
+#endif
 using UnityEngine;
 
 namespace CasPrepared
@@ -39,9 +41,20 @@ namespace CasPrepared
         // Together's UI block sprites (the game's own 9-slice frames). We scale them ourselves:
         // Together's scaled-texture cache is only refreshed on a resolution change, so its textures
         // can lag behind the current UI scale and end up smaller than their border (IMGUI then draws nothing).
+#if STANDALONE
+        // Same game sprites Together uses, found by name; the font is looked up in the game's own assets.
+        private static Sprite TogetherSmall => GameAssets.UiBlockSmall;
+        private static Sprite TogetherNano => GameAssets.UiBlockNano;
+        private static Font GameFont => GameAssets.PixelFont;
+        private static float UiScale => GameAssets.UiScale;
+        private const float BaseFontSize = 20f; // Together's DEFAULT_RETROGAME_FONTSIZE
+#else
         private static Sprite TogetherSmall => UIManager.uiBlockSmall;
         private static Sprite TogetherNano => UIManager.uiBlockNano;
         private static Font GameFont => CoopModAssets.gamefont;
+        private static float UiScale => UIBullshit.uiScale;
+        private static float BaseFontSize => UIBullshit.DEFAULT_RETROGAME_FONTSIZE;
+#endif
 
         /// <summary>Call from OnGUI before drawing. Rebuilds on UI scale / asset changes.</summary>
         public static void Ensure()
@@ -58,7 +71,7 @@ namespace CasPrepared
 
         private static float CurrentScale()
         {
-            float s = UIBullshit.uiScale;
+            float s = UiScale;
             if (s <= 0.01f || float.IsNaN(s)) s = Screen.height / 1080f;
             return Mathf.Clamp(s, 0.4f, 6f);
         }
@@ -68,7 +81,7 @@ namespace CasPrepared
             _builtScale = scale;
             _builtFont = GameFont;
             _builtWithTogether = withTogether;
-            FontSize = Mathf.Max(10, Mathf.RoundToInt(UIBullshit.DEFAULT_RETROGAME_FONTSIZE * scale));
+            FontSize = Mathf.Max(10, Mathf.RoundToInt(BaseFontSize * scale));
 
             if (Skin != null) Object.Destroy(Skin);
             Skin = Object.Instantiate(GUI.skin);

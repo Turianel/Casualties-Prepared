@@ -155,6 +155,7 @@ namespace CasPrepared
         {
             GUILayout.BeginHorizontal(PixelSkin.Inset, GUILayout.Height(u * 1.7f));
 
+#if !STANDALONE // standalone has no time limit
             GUILayout.Label("TIME", PixelSkin.Muted);
             if (LoadoutClient.HasTimeLimit)
             {
@@ -168,6 +169,7 @@ namespace CasPrepared
                 GUILayout.Label("NO LIMIT", PixelSkin.Label);
             }
             GUILayout.Space(u);
+#endif
 
             float max = LoadoutClient.MaxDistance, dist = LoadoutClient.Distance;
             float frac = max > 0f ? dist / max : 0f;
