@@ -14,7 +14,7 @@ Addon for **CU** multiplayer mod (**Casualties: Together**). After spawning, eac
 - **Supply crate.** Items arrive in a temporary crate that cannot be carried or worn. It decays after 5 minutes by default, and its contents drop on the floor.
 - **Once per campaign.** The host records players by SteamID, and the records are saved with the campaign.
 - **Spawn window.** The menu closes after a time limit (can be turned off) or when the player moves too far from the spawn point.
-- **Achievements disabled.** While the mod is active, achievements are disabled the same way Together does it for `sv_cheats`, without unlocking cheat commands.
+- **Achievements disabled.** In multiplayer sessions with the mod active, achievements are disabled the same way Together does it for `sv_cheats`, without unlocking cheat commands.
 - **Server settings toggle.** A checkbox in Together's Server settings turns the mod on or off.
 
 ## Requirements

@@ -17,6 +17,8 @@ namespace CasPrepared
         private const float PollInterval = 2f;
         private const float IdlePollInterval = 10f; // after use / while disabled: still notice GiveLoadout or re-enable
         private const float RequestTimeout = 10f;
+        private const int MissedRepliesForNoMod = 3; // unanswered status requests before we assume the host lacks the mod
+        private const float NoModPollInterval = 60f;  // keep checking slowly in case the host restarts with the mod
         private const float SettleSeconds = 3f;
         private const float TeleportJump = 5f; // per-frame move bigger than this = teleport, not walking
 
@@ -32,6 +34,9 @@ namespace CasPrepared
         private static float _buySentAt;
         private static float _nextPoll;
         private static bool _wasRunning;
+        private static int _missedReplies;
+        /// <summary>The host never answered: it most likely does not have CasPrepared.</summary>
+        public static bool HostLacksMod { get; private set; }
 
         public static string State => Status?.Value<string>(P.KeyState) ?? P.StateWaiting;
         public static bool IsAvailable => State == P.StateAvailable;
@@ -81,7 +86,7 @@ namespace CasPrepared
 
             var now = Time.realtimeSinceStartup;
             UpdateSettled(local.body, now);
-            if (_statusInFlight && now - _statusSentAt > RequestTimeout) _statusInFlight = false;
+            if (_statusInFlight && now - _statusSentAt > RequestTimeout) OnStatusTimeout(now);
             if (BuyInFlight && now - _buySentAt > RequestTimeout)
             {
                 BuyInFlight = false;
@@ -111,7 +116,8 @@ namespace CasPrepared
                 LoadoutUI.Open();
                 return;
             }
-            Alert(IsDisabled ? "The host has turned the loadout menu off."
+            Alert(HostLacksMod && !HasStatus ? "The host does not have CasPrepared installed."
+                : IsDisabled ? "The host has turned the loadout menu off."
                 : State == P.StateUsed ? "Loadout already taken this campaign."
                 : State == P.StateExpired ? "Loadout window has closed."
                 : "Loadout is not available yet.");
@@ -174,9 +180,24 @@ namespace CasPrepared
             return MultiplayerApi.RequestServer(channel, payload, onResponse);
         }
 
+        private static void OnStatusTimeout(float now)
+        {
+            _statusInFlight = false;
+            if (HasStatus) return; // the host answered before: just a lost packet
+            _missedReplies++;
+            if (_missedReplies >= MissedRepliesForNoMod && !HostLacksMod)
+            {
+                HostLacksMod = true;
+                Alert("The host does not have CasPrepared installed. Loadout menu is unavailable.");
+            }
+            if (HostLacksMod) _nextPoll = now + NoModPollInterval;
+        }
+
         private static void OnStatus(JToken response)
         {
             _statusInFlight = false;
+            _missedReplies = 0;
+            HostLacksMod = false;
             if (response is JObject status) ApplyStatus(status);
         }
 
@@ -259,6 +280,8 @@ namespace CasPrepared
         public static void ResetLocal()
         {
             Status = null;
+            _missedReplies = 0;
+            HostLacksMod = false;
             _settledSince = -1f;
             _lastBodyPos = null;
             _statusInFlight = false;

@@ -12,7 +12,7 @@ namespace CasPrepared
     {
         public const string ModGUID = "com.casprepared.loadout";
         public const string ModName = "CasPrepared";
-        public const string ModVersion = "0.2.0";
+        public const string ModVersion = "1.0.1";
 
         internal static new ManualLogSource Logger;
         private readonly Harmony _harmony = new Harmony(ModGUID);

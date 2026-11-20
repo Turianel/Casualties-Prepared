@@ -26,7 +26,8 @@ namespace CasPrepared
 
         public static GUIStyle Window, Panel, Inset, Title, Label, Muted, Small, Right, RightMuted,
             Accent, Success, Warning, Danger, Button, BigButton, SmallButton, Row, Field, Tab, TabActive, TabFiller,
-            BarBack, BarFill, BarFillDanger, Banner;
+            BarBack, BarFill, BarFillDanger, Banner,
+            ItemName, ItemNameAccent, ItemPrice; // item rows in the catalog and selection lists (smaller font)
 
         private static float _builtScale = -1f;
         private static Font _builtFont;
@@ -128,6 +129,12 @@ namespace CasPrepared
             Warning = Text(Label, WarningColor, fs);
             Danger = Text(Label, DangerColor, fs);
             Title = Text(Label, TextColor, Mathf.RoundToInt(fs * 1.25f));
+
+            int itemFs = Mathf.RoundToInt(fs * 0.8f);
+            ItemName = Text(Label, TextColor, itemFs);
+            ItemName.clipping = TextClipping.Clip;
+            ItemNameAccent = Text(ItemName, AccentColor, itemFs);
+            ItemPrice = Text(Right, TextColor, itemFs);
 
             // ---- containers ----
             Window = new GUIStyle(Skin.window)
@@ -244,6 +251,27 @@ namespace CasPrepared
         }
 
         /// <summary>Horizontal bar: framed track with a filled part. Fraction is clamped to [0, 1].</summary>
+        /// <summary>Label that cuts the text with ".." instead of running into the next column.</summary>
+        public static void FitLabel(Rect rect, string text, GUIStyle style)
+        {
+            var content = new GUIContent(text);
+            float max = rect.width - style.padding.horizontal;
+            if (max > 0f && style.CalcSize(content).x - style.padding.horizontal > max)
+            {
+                // binary search the longest prefix that fits with the ellipsis
+                int lo = 0, hi = text.Length;
+                while (lo < hi)
+                {
+                    int mid = (lo + hi + 1) / 2;
+                    content.text = text.Substring(0, mid).TrimEnd() + "..";
+                    if (style.CalcSize(content).x - style.padding.horizontal <= max) lo = mid;
+                    else hi = mid - 1;
+                }
+                content.text = text.Substring(0, lo).TrimEnd() + "..";
+            }
+            GUI.Label(rect, content, style);
+        }
+
         public static void DrawBar(Rect rect, float fraction, bool danger)
         {
             GUI.Box(rect, GUIContent.none, BarBack);

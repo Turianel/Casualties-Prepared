@@ -7,10 +7,11 @@ using UnityEngine;
 namespace CasPrepared
 {
     /// <summary>
-    /// "CasPrepared: Loadout menu" row in Together's Server settings (rules) list.
-    /// Drawn with Together's own skin so it looks like a native rule. The value lives in our
-    /// BepInEx config (Together's rules struct is sent by memcpy and can't get new fields),
-    /// so only the host machine can change it; clients see the state the host reported.
+    /// "CasPrepared: Loadout menu" row in Together's Server settings (rules) panel.
+    /// Pinned under the rules list instead of being slotted into Together's categories:
+    /// the value lives in our BepInEx config (Together's rules struct is sent by memcpy and can't
+    /// get new fields), and the category layout changes between Together versions.
+    /// Only the host machine can change it; clients see the state the host reported.
     /// </summary>
     internal static class RulesPanelRow
     {
@@ -18,44 +19,42 @@ namespace CasPrepared
         private const string TooltipKey = "casprep_rule_enabled";
         private const string Tooltip =
             "Enables the loadout menu on spawn. Budget, range and other settings: casprep_* console commands.";
-        // our row sits right after the cheat rules
-        internal const string AnchorField = "AllowClientCheatCommands";
-
-        internal static bool DrawnThisPass;
-
-        internal static bool MatchesSearch()
-        {
-            var search = UIMainMenu._GUI____RenderRuleField_search;
-            if (string.IsNullOrWhiteSpace(search)) return true;
-            return RuleName.IndexOf(search.Trim(), StringComparison.OrdinalIgnoreCase) >= 0 ||
-                   "loadout casprepared".IndexOf(search.Trim(), StringComparison.OrdinalIgnoreCase) >= 0;
-        }
 
         private static bool IsHostMachine => !Net.IsRunning || Net.IsServer;
         // locked mid-campaign without sv_cheats, like the console setters
         private static bool CanEdit => IsHostMachine && LoadoutCommands.ConfigLockReason() == null;
 
-        /// <summary>Draws the row content. The caller provides the surrounding horizontal group.</summary>
-        internal static void DrawContent()
+        private static GUIStyle _label;
+        private static GUIStyle _source;
+
+        /// <summary>Own copy of the skin's label style, so Together's alignment/width state can't hide our text.</summary>
+        private static GUIStyle LabelStyle()
         {
-            DrawnThisPass = true;
-            GUI.skin.label.wordWrap = false;
+            if (_label == null || _source != GUI.skin.label)
+            {
+                _source = GUI.skin.label;
+                _label = new GUIStyle(_source) { wordWrap = false, alignment = TextAnchor.MiddleLeft };
+            }
+            return _label;
+        }
 
-            var size = GUI.skin.label.CalcSize(new GUIContent(RuleName));
-            if (size.x > UIMainMenu._GUI____RenderRuleField_cur_max_width)
-                UIMainMenu._GUI____RenderRuleField_cur_max_width = size.x;
-
+        /// <summary>Draws the whole row (its own horizontal group) at the current layout position.</summary>
+        internal static void Draw(float panelWidth)
+        {
+            var style = LabelStyle();
+            GUILayout.Space(4f);
+            GUILayout.BeginHorizontal();
             bool hover;
             if (CanEdit)
             {
-                GUI.skin.label.alignment = TextAnchor.MiddleRight;
-                GUILayout.Label(RuleName, GUILayout.Width(UIMainMenu._GUI____RenderRuleField_last_max_width));
+                GUILayout.Label(RuleName, style, GUILayout.ExpandWidth(false));
                 hover = UIBullshit.CheckCursorOverlap(GUIUtility.GUIToScreenRect(GUILayoutUtility.GetLastRect()));
-                GUI.skin.label.alignment = TextAnchor.MiddleLeft;
 
                 bool current = ModConfig.Enabled.Value;
-                bool next = GUILayout.Toggle(current, "");
+                bool next = GUILayout.Toggle(current, "", GUILayout.ExpandWidth(false));
                 hover |= UIBullshit.CheckCursorOverlap(GUIUtility.GUIToScreenRect(GUILayoutUtility.GetLastRect()));
+                GUILayout.Label(next ? "on" : "off", style, GUILayout.ExpandWidth(false),
+                    GUILayout.Width(Mathf.Max(40f, panelWidth * 0.1f)));
                 if (next != current)
                 {
                     ModConfig.Enabled.Value = next;
@@ -64,12 +63,13 @@ namespace CasPrepared
             }
             else
             {
-                GUI.skin.label.alignment = TextAnchor.UpperLeft;
-                string value = IsHostMachine ? (ModConfig.Enabled.Value ? "True" : "False")
-                    : !LoadoutClient.HasStatus ? "?" : LoadoutClient.IsDisabled ? "False" : "True";
-                GUILayout.Label($"{RuleName}:  {value}");
+                string value = IsHostMachine ? (ModConfig.Enabled.Value ? "on" : "off")
+                    : !LoadoutClient.HasStatus ? "?" : LoadoutClient.IsDisabled ? "off" : "on";
+                GUILayout.Label($"{RuleName}: {value}", style, GUILayout.ExpandWidth(false));
                 hover = UIBullshit.CheckCursorOverlap(GUIUtility.GUIToScreenRect(GUILayoutUtility.GetLastRect()));
             }
+            GUILayout.FlexibleSpace();
+            GUILayout.EndHorizontal();
 
             if (hover) UIBullshit._GUI_SetTooltip(TooltipKey, Tooltip);
         }
@@ -81,41 +81,13 @@ namespace CasPrepared
         private static MethodBase TargetMethod() =>
             AccessTools.Method(typeof(UIMainMenu), "_GUI___ConnectionSecondPanel_ContentRender_RenderRulesList");
 
-        private static void Prefix() => RulesPanelRow.DrawnThisPass = false;
-
-        // Search hid the anchor rule but matches ours: show it under the list instead.
-        private static void Postfix()
+        // Runs after Together closed its scroll view: the row stays fixed under the list.
+        private static void Postfix(Rect r2)
         {
-            if (RulesPanelRow.DrawnThisPass || !RulesPanelRow.MatchesSearch()) return;
             try
             {
-                GUILayout.BeginHorizontal();
-                RulesPanelRow.DrawContent();
-                GUILayout.EndHorizontal();
-            }
-            catch (Exception e)
-            {
-                Plugin.Logger.LogWarning("Rules row (fallback) failed: " + e.Message);
-            }
-        }
-    }
-
-    [HarmonyPatch]
-    internal static class UIMainMenu_RuleField_Patch
-    {
-        private static MethodBase TargetMethod() =>
-            AccessTools.Method(typeof(UIMainMenu), "_GUI____RenderRuleField");
-
-        // The caller wraps every rule in Begin/EndHorizontal: close the anchor's row,
-        // open ours, and let the caller's EndHorizontal close it.
-        private static void Postfix(FieldInfo fld)
-        {
-            if (fld == null || fld.Name != RulesPanelRow.AnchorField || !RulesPanelRow.MatchesSearch()) return;
-            GUILayout.EndHorizontal();
-            GUILayout.BeginHorizontal();
-            try
-            {
-                RulesPanelRow.DrawContent();
+                var panel = r2; // copy: reading a field of a non-ref patch parameter trips Harmony003
+                RulesPanelRow.Draw(panel.width);
             }
             catch (Exception e)
             {
@@ -127,7 +99,7 @@ namespace CasPrepared
     /// <summary>Notice on the game's title screen while the mod is on.</summary>
     internal static class MenuBanner
     {
-        private const string Text = "Achievements disabled: loadout mod is active.";
+        private const string Text = "Achievements are disabled in multiplayer while the loadout mod is active.";
 
         public static void Draw()
         {

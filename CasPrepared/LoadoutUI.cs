@@ -273,9 +273,9 @@ namespace CasPrepared
 
             float priceW = u * 4.5f;
             var name = new Rect(icon.xMax + pad, row.y, row.width - icon.width - priceW - pad * 4f, row.height);
-            GUI.Label(name, entry.Name, inCart > 0 ? PixelSkin.Accent : PixelSkin.Label);
+            PixelSkin.FitLabel(name, entry.Name, inCart > 0 ? PixelSkin.ItemNameAccent : PixelSkin.ItemName);
             var price = new Rect(row.xMax - priceW - pad, row.y, priceW, row.height);
-            GUI.Label(price, UnitPrice(entry, mult), PixelSkin.Right);
+            GUI.Label(price, UnitPrice(entry, mult), PixelSkin.ItemPrice);
         }
 
         // ---- selection ----
@@ -330,12 +330,24 @@ namespace CasPrepared
 
             float priceW = u * 3.6f;
             var price = new Rect(minus.x - priceW - pad, row.y, priceW, row.height);
-            GUI.Label(price, LoadoutCatalog.PriceOf(entry, mult, amount).ToString(), PixelSkin.Right);
+            GUI.Label(price, LoadoutCatalog.PriceOf(entry, mult, amount).ToString(), PixelSkin.ItemPrice);
 
             var icon = new Rect(row.x + pad, row.y + 2f, row.height - 4f, row.height - 4f);
             PixelSkin.DrawSprite(icon, entry.Icon);
             var name = new Rect(icon.xMax + pad, row.y, price.x - icon.xMax - pad * 2f, row.height);
-            GUI.Label(name, amount > 1 ? $"{entry.Name} x{amount}" : entry.Name, PixelSkin.Label);
+            if (amount > 1)
+            {
+                // keep the count visible: only the name gets cut
+                var countText = new GUIContent("x" + amount);
+                float countW = PixelSkin.ItemNameAccent.CalcSize(countText).x;
+                var nameOnly = new Rect(name.x, name.y, Mathf.Max(0f, name.width - countW), name.height);
+                PixelSkin.FitLabel(nameOnly, entry.Name, PixelSkin.ItemName);
+                GUI.Label(new Rect(nameOnly.xMax, name.y, countW, name.height), countText, PixelSkin.ItemNameAccent);
+            }
+            else
+            {
+                PixelSkin.FitLabel(name, entry.Name, PixelSkin.ItemName);
+            }
         }
 
         // ---- footer ----
