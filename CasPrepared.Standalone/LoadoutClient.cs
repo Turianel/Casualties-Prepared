@@ -30,7 +30,6 @@ namespace CasPrepared
 
         private static float _settledSince = -1f;
         private static Vector2? _lastBodyPos;
-        private static bool _achievementsLocked;
         private static bool _mpNoticeShown;
 
         // ---- members used by the shared UI ----
@@ -52,7 +51,7 @@ namespace CasPrepared
             return world != null && world.worldExists;
         }
 
-        /// <summary>Tutorial runs are left alone (vanilla does not disable achievements there either).</summary>
+        /// <summary>Tutorial runs are left alone.</summary>
         private static bool IsTutorial =>
             WorldGeneration.world != null && WorldGeneration.world.biomeOverride == WorldGeneration.OverrideSceneType.Tutorial;
 
@@ -72,8 +71,6 @@ namespace CasPrepared
                 return;
             }
             if (!ModConfig.Enabled.Value) return;
-
-            LockAchievements();
 
             var body = PlayerCamera.main != null ? PlayerCamera.main.body : null;
             if (body == null)
@@ -96,18 +93,6 @@ namespace CasPrepared
             }
 
             if (Input.GetKeyDown(ModConfig.MenuKey.Value) && !LoadoutUI.IsSearchFocused) ToggleMenu();
-        }
-
-        private static void LockAchievements()
-        {
-            if (_achievementsLocked) return;
-            _achievementsLocked = true;
-            // Vanilla cheat path: achievements off until restart, and the save is marked as cheated.
-            if (SteamManager.disableAchievements) return;
-            SteamManager.disableAchievements = true;
-            Plugin.Logger.LogInfo("Achievements disabled for this run (CasPrepared active).");
-            // Not ConsoleScript.Alert: that one pops the console open.
-            Alert("Loadout menu is on: achievements are disabled until you restart the game.");
         }
 
         private static void OpenWindow(Body body)
@@ -254,7 +239,6 @@ namespace CasPrepared
             Distance = 0f;
             _settledSince = -1f;
             _lastBodyPos = null;
-            _achievementsLocked = false;
             _mpNoticeShown = false;
             LoadoutUI.Close();
             LoadoutUI.ClearSelection();

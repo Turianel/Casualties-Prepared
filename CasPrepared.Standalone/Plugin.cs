@@ -18,7 +18,7 @@ namespace CasPrepared
         public const string ModGUID = "com.casprepared.standalone";
         public const string MultiplayerGUID = "com.casprepared.loadout";
         public const string ModName = "CasPrepared Standalone";
-        public const string ModVersion = "1.0.0";
+        public const string ModVersion = "1.0.2";
 
         internal static new ManualLogSource Logger;
         private readonly Harmony _harmony = new Harmony(ModGUID);

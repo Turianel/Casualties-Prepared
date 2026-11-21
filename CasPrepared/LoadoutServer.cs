@@ -32,8 +32,6 @@ namespace CasPrepared
         // Session only: players whose menu window is currently open.
         private static readonly Dictionary<string, Pending> PendingByKey = new Dictionary<string, Pending>();
 
-        private static bool _wasRunning;
-        private static bool _achievementsLocked;
         private static float _nextTick;
 
         public static void Init()
@@ -70,33 +68,12 @@ namespace CasPrepared
 
         public static void Tick()
         {
-            if (!Net.IsRunning)
-            {
-                // Records belong to the campaign (world/save), not to the server session - keep them.
-                if (_wasRunning) _achievementsLocked = false;
-                _wasRunning = false;
-                return;
-            }
-            _wasRunning = true;
-
-            if (!Net.IsServer || !WorldReady() || !Enabled) return;
+            // Records belong to the campaign (world/save), not to the server session - kept across sessions.
+            if (!Net.IsRunning || !Net.IsServer || !WorldReady() || !Enabled) return;
             if (Time.unscaledTime < _nextTick) return;
             _nextTick = Time.unscaledTime + 0.5f;
 
-            LockAchievements();
             TrackPlayers();
-        }
-
-        private static void LockAchievements()
-        {
-            if (_achievementsLocked) return;
-            _achievementsLocked = true;
-            // Same path Casualties: Together uses when a cheat command is run:
-            // flags this machine, every client (incl. late joiners) and the shared save as CHEATED.
-            // sv_cheats itself stays untouched, so cheat commands remain locked.
-            AchievementBreakSync.ApplyLocal(showAlert: true);
-            AchievementBreakSync.Server_Broadcast(showAlert: true);
-            Plugin.Logger.LogInfo("Achievements disabled for this session (CasPrepared active).");
         }
 
         private static void TrackPlayers()
@@ -238,7 +215,6 @@ namespace CasPrepared
         {
             Records.Clear();
             PendingByKey.Clear();
-            _achievementsLocked = false;
         }
 
         private static JToken HandleBuy(uint sender, JToken payload)

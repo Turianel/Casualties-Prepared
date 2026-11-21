@@ -95,23 +95,4 @@ namespace CasPrepared
             }
         }
     }
-
-    /// <summary>Notice on the game's title screen while the mod is on.</summary>
-    internal static class MenuBanner
-    {
-        private const string Text = "Achievements are disabled in multiplayer while the loadout mod is active.";
-
-        public static void Draw()
-        {
-            if (!ModConfig.Enabled.Value || WorldGeneration.world != null) return;
-            if (Event.current.type != EventType.Repaint) return;
-            PixelSkin.Ensure();
-
-            var style = PixelSkin.Banner;
-            var size = style.CalcSize(new GUIContent(Text));
-            float u = PixelSkin.Unit;
-            var rect = new Rect((Screen.width - size.x) / 2f, u * 0.6f, size.x, Mathf.Max(size.y, u * 1.8f));
-            GUI.Label(rect, Text, style);
-        }
-    }
 }

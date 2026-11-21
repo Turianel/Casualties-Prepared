@@ -14,7 +14,7 @@ Addon for **CU** multiplayer mod (**Casualties: Together**). After spawning, eac
 - **Supply crate.** Items arrive in a temporary crate that cannot be carried or worn. It decays after 5 minutes by default, and its contents drop on the floor.
 - **Once per campaign.** The host records players by SteamID, and the records are saved with the campaign.
 - **Spawn window.** The menu closes after a time limit (can be turned off) or when the player moves too far from the spawn point.
-- **Achievements disabled.** In multiplayer sessions with the mod active, achievements are disabled the same way Together does it for `sv_cheats`, without unlocking cheat commands.
+- **Achievements stay enabled.** The mod does not touch achievements (since 1.0.2). Cheat commands stay locked by `sv_cheats` as usual.
 - **Server settings toggle.** A checkbox in Together's Server settings turns the mod on or off.
 
 ## Requirements
@@ -50,7 +50,7 @@ The same settings are stored in `BepInEx/config/com.casprepared.loadout.cfg`.
 - Same menu, catalog, budget, prices and supply crate.
 - One loadout per run, saved with the run.
 - No time limit: the menu closes only when you move too far from the spawn point or die.
-- On/off switch on the character select screen. Achievements are disabled for runs with the menu on (vanilla cheat flag).
+- On/off switch on the character select screen. Achievements stay enabled.
 - Settings can be changed only outside a run. `casprep_window`, `casprep_reset`, `casprep_cheats` and `casprep_giveloadout` don't exist in this build.
 - Install either the multiplayer or the standalone build, not both. With both installed, the standalone build doesn't load.
 - If Together is installed too, the standalone build stays idle during multiplayer sessions.

@@ -29,11 +29,7 @@ namespace CasPrepared
                         RequireConfigAccess();
                         ModConfig.Enabled.Value = ParseBool(args[1]);
                     }
-#if STANDALONE
-                    Log("Loadout menu: " + (ModConfig.Enabled.Value ? "ON (achievements are disabled for new runs)" : "OFF"));
-#else
-                    Log("Loadout menu: " + (ModConfig.Enabled.Value ? "ON (achievements are disabled while hosting)" : "OFF"));
-#endif
+                    Log("Loadout menu: " + (ModConfig.Enabled.Value ? "ON" : "OFF"));
                 },
                 null, ("bool value", "on/off, true/false or 1/0."));
 

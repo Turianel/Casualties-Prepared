@@ -4,7 +4,7 @@
     <AssemblyName>$(ProjectName)</AssemblyName>
     <RootNamespace>CasPrepared</RootNamespace>
     <Product>CasPrepared - multiplayer spawn loadouts</Product>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>

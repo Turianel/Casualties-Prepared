@@ -31,11 +31,11 @@ namespace CasPrepared
         {
 #if STANDALONE
             Enabled = cfg.Bind(Section, "Enabled", true,
-                "Loadout menu after spawning in a new run. When on, achievements are disabled for the run. " +
+                "Loadout menu after spawning in a new run. " +
                 "Also toggled on the character select screen or with casprep_enable (main menu only).");
 #else
             Enabled = cfg.Bind(Section, "Enabled", true,
-                "Loadout menu for multiplayer sessions you host. When on, achievements are disabled for the session. " +
+                "Loadout menu for multiplayer sessions you host. " +
                 "Also toggled from Together's Server settings or with casprep_enable.");
 #endif
 

@@ -73,10 +73,6 @@ namespace CasPrepared
 
             if (!LoadoutServer.WorldReady()) return;
 
-            // Every machine with the mod locks itself too (in case the host broadcast was missed),
-            // but only once the host confirmed the loadout menu is on for this session.
-            if (HasStatus && !IsDisabled && !SteamManager.disableAchievements) AchievementBreakSync.ApplyLocal(showAlert: true);
-
             var local = ScavPlayer.LocalPlayer;
             if (local == null || local.body == null) // dedicated server or not spawned yet
             {
