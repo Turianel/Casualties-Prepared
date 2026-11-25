@@ -14,6 +14,11 @@ on:
       tag:
         description: Release tag to publish again (v1.2.3 or S-1.2.3)
         required: true
+      targets:
+        description: Where to upload (a second Nexus upload of the same tag adds a duplicate version)
+        type: choice
+        options: [all, nexus, thunderstore]
+        default: all
 
 permissions:
   contents: read
@@ -28,6 +33,7 @@ jobs:
     env:
       TAG: ${{ github.event.release.tag_name || inputs.tag }}
       GH_TOKEN: ${{ github.token }}
+      TARGETS: ${{ inputs.targets || 'all' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -65,6 +71,7 @@ jobs:
               "category": p["nexus_category"],
               "display_name": p["nexus_display_name"],
               "update_mod_version": str(p["nexus_update_mod_version"]).lower(),
+              "changelog": str(p["nexus_changelog"]).lower(),
               "zip": f'{p["assembly"]}-{version}.zip',
               "ts_zip": f'{p["assembly"]}-{version}-thunderstore.zip',
               "title": f'{p["release_title"]} {version}',
@@ -83,6 +90,7 @@ jobs:
 
       - name: Release notes
         id: notes
+        if: steps.pkg.outputs.changelog == 'true'
         run: |
           body=$(gh release view "$TAG" --json body --jq .body)
           {
@@ -92,6 +100,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Upload to Nexus Mods
+        if: env.TARGETS == 'all' || env.TARGETS == 'nexus'
         uses: Nexus-Mods/upload-action@v1.0.0-beta.11
         with:
           api_key: ${{ secrets.NEXUS }}
@@ -104,13 +113,16 @@ jobs:
           description: ${{ steps.pkg.outputs.title }}
           archive_existing_version: 'true'
           update_mod_version: ${{ steps.pkg.outputs.update_mod_version }}
+          # mod-level changelog: only the multiplayer release writes it (the global v3 mod id is needed)
           changelog: ${{ steps.notes.outputs.changelog }}
 
       - uses: actions/setup-dotnet@v4
+        if: env.TARGETS == 'all' || env.TARGETS == 'thunderstore'
         with:
           dotnet-version: 8.0.x
 
       - name: Upload to Thunderstore
+        if: env.TARGETS == 'all' || env.TARGETS == 'thunderstore'
         env:
           TCLI_AUTH_TOKEN: ${{ secrets.THUNDERSTORE }}
         run: |

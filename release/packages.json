@@ -1,6 +1,8 @@
 {
   "_comment": "Release packages. Read by release/release.py (zips, manifests) and the publish workflow (Nexus / Thunderstore targets).",
-  "nexus_mod_id": 1020,
+  "nexus_mod_page": "https://www.nexusmods.com/scavprototype/mods/1020",
+  "_nexus_mod_id": "global v3 API id of mod 1020: GET https://api.nexusmods.com/v3/games/scavprototype/mods/1020",
+  "nexus_mod_id": "36039070581756",
   "packages": {
     "multiplayer": {
       "project": "CasPrepared",
@@ -11,6 +13,7 @@
       "nexus_category": "main",
       "nexus_display_name": "CasPrepared",
       "nexus_update_mod_version": true,
+      "nexus_changelog": true,
       "thunderstore": {
         "name": "CasualtiesPrepared",
         "readme": "release/thunderstore/README.md",
@@ -30,6 +33,7 @@
       "nexus_category": "optional",
       "nexus_display_name": "CasPrepared Standalone",
       "nexus_update_mod_version": false,
+      "nexus_changelog": false,
       "thunderstore": {
         "name": "CasualtiesPreparedStandalone",
         "readme": "release/thunderstore/README.Standalone.md",
