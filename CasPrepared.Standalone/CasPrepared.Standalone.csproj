@@ -9,7 +9,7 @@
     <AssemblyName>CasPreparedStandalone</AssemblyName>
     <RootNamespace>CasPrepared</RootNamespace>
     <Product>CasPrepared Standalone - single-player spawn loadouts</Product>
-    <Version>1.0.2</Version>
+    <Version>1.1.0</Version>
     <DefineConstants>$(DefineConstants);STANDALONE</DefineConstants>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
@@ -34,12 +34,16 @@
 
     <!-- Shared with the multiplayer build -->
     <Compile Include="..\CasPrepared\CampaignPatches.cs" Link="Shared\CampaignPatches.cs" />
+    <Compile Include="..\CasPrepared\ItemRules.cs" Link="Shared\ItemRules.cs" />
     <Compile Include="..\CasPrepared\LoadoutCatalog.cs" Link="Shared\LoadoutCatalog.cs" />
     <Compile Include="..\CasPrepared\LoadoutCommands.cs" Link="Shared\LoadoutCommands.cs" />
     <Compile Include="..\CasPrepared\LoadoutOrder.cs" Link="Shared\LoadoutOrder.cs" />
     <Compile Include="..\CasPrepared\LoadoutUI.cs" Link="Shared\LoadoutUI.cs" />
     <Compile Include="..\CasPrepared\ModConfig.cs" Link="Shared\ModConfig.cs" />
+    <Compile Include="..\CasPrepared\PixelIcons.cs" Link="Shared\PixelIcons.cs" />
     <Compile Include="..\CasPrepared\PixelSkin.cs" Link="Shared\PixelSkin.cs" />
+    <Compile Include="..\CasPrepared\PresetPanel.cs" Link="Shared\PresetPanel.cs" />
+    <Compile Include="..\CasPrepared\PresetStore.cs" Link="Shared\PresetStore.cs" />
     <Compile Include="..\CasPrepared\SupplyCrate.cs" Link="Shared\SupplyCrate.cs" />
 
     <!-- Same resource name as the multiplayer build: CasPrepared.images.supplycrate.png -->
@@ -52,7 +56,11 @@
     <PackageReference Include="BepInEx.PluginInfoProps" Version="2.*" />
     <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.2" PrivateAssets="all" />
     <PackageReference Include="UnityEngine.Modules" Version="2022.3.62" IncludeAssets="compile" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" IncludeAssets="compile" />
+    <!-- The game ships a stripped Newtonsoft.Json: compile against it so missing members fail the build, not the game. -->
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(GameAssembliesDir)/Newtonsoft.Json.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <PackageReference Include="Lib.Harmony" Version="2.4.2" />
 
     <Reference Include="Assembly-CSharp" Publicize="true">

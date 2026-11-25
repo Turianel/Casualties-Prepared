@@ -263,7 +263,60 @@ namespace CasPrepared
             GUI.DrawTextureWithTexCoords(fit, tex, uv, true);
         }
 
-        /// <summary>Horizontal bar: framed track with a filled part. Fraction is clamped to [0, 1].</summary>
+        // ---- marquee: long labels scroll while hovered ----
+        private const float MarqueeDelay = 0.5f;     // hover time before scrolling starts
+        private const float MarqueeEdgePause = 1f;   // pause at each end
+        private const float MarqueeSpeedUnits = 3f;  // scroll speed in UI units per second
+        private static string _marqueeKey;
+        private static float _marqueeSince;
+        private static int _marqueeFrame = -10;
+
+        /// <summary>
+        /// Like FitLabel, but a hovered label that does not fit scrolls ping-pong after a short delay,
+        /// pausing at both ends. Only one label (the hovered one, by <paramref name="key"/>) scrolls at a time.
+        /// </summary>
+        public static void MarqueeLabel(Rect rect, string text, GUIStyle style, string key, bool hovered)
+        {
+            var content = new GUIContent(text);
+            float textW = style.CalcSize(content).x;
+            if (!hovered || textW <= rect.width || rect.width <= 0f)
+            {
+                FitLabel(rect, text, style);
+                return;
+            }
+
+            int frame = Time.frameCount;
+            float now = Time.unscaledTime;
+            // new label, or the hover was interrupted: start over
+            if (_marqueeKey != key || frame - _marqueeFrame > 1)
+            {
+                _marqueeKey = key;
+                _marqueeSince = now;
+            }
+            _marqueeFrame = frame;
+
+            float t = now - _marqueeSince - MarqueeDelay;
+            if (t < 0f)
+            {
+                FitLabel(rect, text, style);
+                return;
+            }
+
+            float overflow = textW - rect.width;
+            float speed = Mathf.Max(1f, Unit * MarqueeSpeedUnits);
+            float travel = overflow / speed;
+            float c = t % (2f * (MarqueeEdgePause + travel));
+            float offset;
+            if (c < MarqueeEdgePause) offset = 0f;
+            else if (c < MarqueeEdgePause + travel) offset = (c - MarqueeEdgePause) * speed;
+            else if (c < 2f * MarqueeEdgePause + travel) offset = overflow;
+            else offset = overflow - (c - 2f * MarqueeEdgePause - travel) * speed;
+
+            GUI.BeginClip(rect);
+            GUI.Label(new Rect(-Mathf.Round(Mathf.Clamp(offset, 0f, overflow)), 0f, textW + 1f, rect.height), content, style);
+            GUI.EndClip();
+        }
+
         /// <summary>Label that cuts the text with ".." instead of running into the next column.</summary>
         public static void FitLabel(Rect rect, string text, GUIStyle style)
         {
@@ -285,6 +338,7 @@ namespace CasPrepared
             GUI.Label(rect, content, style);
         }
 
+        /// <summary>Horizontal bar: framed track with a filled part. Fraction is clamped to [0, 1].</summary>
         public static void DrawBar(Rect rect, float fraction, bool danger)
         {
             GUI.Box(rect, GUIContent.none, BarBack);

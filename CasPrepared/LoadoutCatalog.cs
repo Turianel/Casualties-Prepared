@@ -13,8 +13,12 @@ namespace CasPrepared
         /// <summary>Display group used by the menu tabs (Ammo, Weapons, Gear, Medical, ...).</summary>
         public string Group;
         public string Description;
-        /// <summary>Base value per unit. Fractional for loose rounds.</summary>
+        /// <summary>Base value per unit (custom price if the host set one). Fractional for loose rounds.</summary>
         public float BaseValue;
+        /// <summary>Trader value per unit without host rules (0 for items traders do not sell).</summary>
+        public float VanillaValue;
+        /// <summary>Added by the host (not sold by traders).</summary>
+        public bool Extra;
 
         private bool _iconResolved;
         private Sprite _icon;
@@ -37,16 +41,32 @@ namespace CasPrepared
     /// Price = base trader value (without reputation modifier) * host multiplier.
     /// Loose rounds have value 0 in vanilla (their value lives in the magazine), so they are priced
     /// per round from the cheapest full magazine / box of the same ammo type.
+    /// Host item rules (custom prices, hidden and extra items) are applied on top, see ItemRules.
     /// </summary>
     internal static class LoadoutCatalog
     {
         public const int MaxPerItem = 50;
         public const int MaxTotalItems = 200;
 
+        /// <summary>Rules to apply. Multiplayer clients switch this to the rules received from the host.</summary>
+        public static Func<ItemRules> RulesProvider = () => ItemRulesStore.Local;
+
+        // trader list without rules
+        private static List<CatalogEntry> _base;
+        private static Dictionary<string, CatalogEntry> _baseById;
+
+        // effective list (rules applied)
         private static List<CatalogEntry> _entries;
         private static List<string> _groups;
         private static Dictionary<string, CatalogEntry> _byId;
+        private static ItemRules _builtRules;
+        private static int _builtRevision = -1;
+
         private static readonly Dictionary<string, GameObject> PrefabCache = new Dictionary<string, GameObject>();
+        private static readonly Dictionary<string, Sprite> SpriteCache = new Dictionary<string, Sprite>();
+
+        /// <summary>Changes whenever the effective list is rebuilt (rules changed).</summary>
+        public static int Version { get; private set; }
 
         public static IReadOnlyList<CatalogEntry> Entries
         {
@@ -72,6 +92,65 @@ namespace CasPrepared
             EnsureBuilt();
             entry = null;
             return id != null && _byId != null && _byId.TryGetValue(id, out entry);
+        }
+
+        /// <summary>The item list has been read from the game (false in the very first frames).</summary>
+        public static bool IsLoaded
+        {
+            get
+            {
+                EnsureBuilt();
+                return _base != null;
+            }
+        }
+
+        /// <summary>Item is on the trader list (before host rules).</summary>
+        public static bool TryGetBase(string id, out CatalogEntry entry)
+        {
+            EnsureBuilt();
+            entry = null;
+            return id != null && _baseById != null && _baseById.TryGetValue(id, out entry);
+        }
+
+        public static IEnumerable<string> BaseIds
+        {
+            get
+            {
+                EnsureBuilt();
+                return _base?.Select(e => e.Id) ?? Enumerable.Empty<string>();
+            }
+        }
+
+        /// <summary>Every item id the game knows (except our crate).</summary>
+        public static IEnumerable<string> AllItemIds =>
+            Item.GlobalItems == null ? Enumerable.Empty<string>()
+                : Item.GlobalItems.Keys.Where(k => !string.IsNullOrEmpty(k) && k != SupplyCrate.ItemId);
+
+        public static bool IsGameItem(string id) =>
+            id != null && id != SupplyCrate.ItemId && Item.GlobalItems != null && Item.GlobalItems.ContainsKey(id);
+
+        /// <summary>Display name of any game item id.</summary>
+        public static string NameOf(string id)
+        {
+            if (id != null && Item.GlobalItems != null && Item.GlobalItems.TryGetValue(id, out var info) && info != null &&
+                !string.IsNullOrEmpty(info.fullName))
+                return info.fullName;
+            return id;
+        }
+
+        /// <summary>Trader value of any game item (0 when traders do not sell it).</summary>
+        public static int TraderValueOf(string id)
+        {
+            if (id == null || Item.GlobalItems == null || !Item.GlobalItems.TryGetValue(id, out var info) || info == null) return 0;
+            if (info.value <= 0) return 0;
+            try
+            {
+                return Math.Max(0, info.DefaultValue());
+            }
+            catch
+            {
+                return 0;
+            }
         }
 
         /// <summary>Price of <paramref name="count"/> units. Rounded once per line so fractional prices add up fairly.</summary>
@@ -108,7 +187,61 @@ namespace CasPrepared
 
         private static void EnsureBuilt()
         {
-            if (_entries != null && _entries.Count > 0) return;
+            if (_base == null) BuildBase();
+            if (_base == null) return;
+
+            var rules = RulesProvider?.Invoke() ?? ItemRulesStore.Local;
+            if (_entries != null && ReferenceEquals(rules, _builtRules) && rules.Revision == _builtRevision) return;
+            _builtRules = rules;
+            _builtRevision = rules.Revision;
+            BuildEffective(rules);
+        }
+
+        private static void BuildEffective(ItemRules rules)
+        {
+            var list = new List<CatalogEntry>();
+            foreach (var b in _base)
+            {
+                if (rules.IsBanned(b.Id)) continue;
+                list.Add(rules.TryGetPrice(b.Id, out var custom) ? Copy(b, custom) : b);
+            }
+            foreach (var id in rules.Added)
+            {
+                if (rules.IsBanned(id) || _baseById.ContainsKey(id) || !IsGameItem(id)) continue;
+                float vanilla = TraderValueOf(id);
+                // an extra item needs a price: the custom one, else the trader value
+                bool hasCustom = rules.TryGetPrice(id, out var custom);
+                float price = hasCustom ? custom : vanilla;
+                if (!hasCustom && price <= 0f) continue;
+                var entry = NewEntry(id, Item.GlobalItems[id], price);
+                entry.VanillaValue = vanilla;
+                entry.Extra = true;
+                list.Add(entry);
+            }
+
+            list.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+            _entries = list;
+            _byId = list.ToDictionary(e => e.Id, e => e);
+            _groups = list.Select(e => e.Group).Distinct()
+                .OrderBy(g => Array.IndexOf(GroupOrder, g) is var i && i >= 0 ? i : GroupOrder.Length)
+                .ThenBy(g => g, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            Version++;
+        }
+
+        private static CatalogEntry Copy(CatalogEntry b, float price) => new CatalogEntry
+        {
+            Id = b.Id,
+            Name = b.Name,
+            Category = b.Category,
+            Group = b.Group,
+            Description = b.Description,
+            BaseValue = price,
+            VanillaValue = b.VanillaValue
+        };
+
+        private static void BuildBase()
+        {
             if (Item.GlobalItems == null || Item.GlobalItems.Count == 0) return;
 
             var list = new List<CatalogEntry>();
@@ -157,13 +290,10 @@ namespace CasPrepared
                 if (perRound.TryGetValue(ammo.ammoType, out var unit) && unit > 0f)
                     list.Add(NewEntry(id, info, unit));
 
-            list.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
-            _entries = list;
-            _byId = list.ToDictionary(e => e.Id, e => e);
-            _groups = list.Select(e => e.Group).Distinct()
-                .OrderBy(g => Array.IndexOf(GroupOrder, g) is var i && i >= 0 ? i : GroupOrder.Length)
-                .ThenBy(g => g, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            if (list.Count == 0) return;
+            foreach (var e in list) e.VanillaValue = e.BaseValue;
+            _base = list;
+            _baseById = list.ToDictionary(e => e.Id, e => e);
         }
 
         private static CatalogEntry NewEntry(string id, ItemInfo info, float value)
@@ -200,12 +330,17 @@ namespace CasPrepared
 
         internal static Sprite SpriteOf(string id)
         {
+            if (SpriteCache.TryGetValue(id, out var cached)) return cached;
+            Sprite sprite = null;
             var prefab = GetPrefab(id);
-            if (prefab == null) return null;
-            var sr = prefab.GetComponent<SpriteRenderer>();
-            if (sr == null) sr = prefab.GetComponentInChildren<SpriteRenderer>(true);
-            if (sr != null && sr.sprite != null) return sr.sprite;
-            return null;
+            if (prefab != null)
+            {
+                var sr = prefab.GetComponent<SpriteRenderer>();
+                if (sr == null) sr = prefab.GetComponentInChildren<SpriteRenderer>(true);
+                if (sr != null && sr.sprite != null) sprite = sr.sprite;
+            }
+            SpriteCache[id] = sprite;
+            return sprite;
         }
 
         /// <summary>Spawned items match the price: magazines and ammo boxes come full.</summary>

@@ -4,6 +4,8 @@
 
 # CasPrepared
 
+[Nexus Mods](https://www.nexusmods.com/scavprototype/mods/1020) · [Thunderstore](https://thunderstore.io/c/casualties-unknown/p/Turianel_mod_team/CasualtiesPrepared/) · [Thunderstore (Standalone)](https://thunderstore.io/c/casualties-unknown/p/Turianel_mod_team/CasualtiesPreparedStandalone/)
+
 Addon for **CU** multiplayer mod (**Casualties: Together**). After spawning, each player gets a loadout menu once per campaign. They pick items within a budget, and game delivers them in a temporary supply crate.
 
 ## Features
@@ -16,6 +18,10 @@ Addon for **CU** multiplayer mod (**Casualties: Together**). After spawning, eac
 - **Spawn window.** The menu closes after a time limit (can be turned off) or when the player moves too far from the spawn point.
 - **Achievements stay enabled.** The mod does not touch achievements (since 1.0.2). Cheat commands stay locked by `sv_cheats` as usual.
 - **Server settings toggle.** A checkbox in Together's Server settings turns the mod on or off.
+- **Presets.** Save loadouts under your own names (up to 32 characters) and load them in one click. The presets panel opens from the loadout window and shows each preset's cost at the current host's prices.
+- **Item rules.** The host can set custom prices, hide items and add items that traders do not sell. Clients get the rules from the host automatically.
+
+- **Same version everywhere.** Since 1.1 the host and every player need the same CasPrepared version. A player with another version sees the host as having no mod.
 
 ## Requirements
 
@@ -25,25 +31,39 @@ Addon for **CU** multiplayer mod (**Casualties: Together**). After spawning, eac
 
 ## Console commands
 
+All commands go through one console command: `casprep <command> [value]`. The console shows hints for the typed command, and Tab completes command names and item ids. `casprep help` lists everything.
+
 Settings can always be changed in the main menu. During a running campaign they are locked unless `sv_cheats` is on.
 
 | Command | Description |
 |---|---|
-| `casprep_menu` | Open or close the loadout menu (default key F6) |
-| `casprep_enable [on/off]` | Turn the mod on or off for sessions you host |
-| `casprep_budget [n]` | Loadout budget per player (default 100) |
-| `casprep_mult [x]` | Price multiplier (default 1.0) |
-| `casprep_window [sec/off]` | Seconds the menu stays available after spawn; `0` or `off` removes the limit (default 300) |
-| `casprep_radius [tiles]` | Maximum distance from spawn before the menu closes (default 100) |
-| `casprep_cratetime [sec]` | Supply crate lifetime (default 300) |
-| `casprep_status` | List players and their loadout state |
-| `casprep_reset [player]` | Let a player pick a loadout again |
-| `casprep_cheats` | Show whether cheat rules allow `casprep_giveloadout` |
-| `casprep_giveloadout [player]` | Open the menu again; needs `sv_cheats` (and `AllowClientCheatCommands` for clients) |
+| `casprep menu` | Open or close the loadout menu (default key F6) |
+| `casprep enable [on/off]` | Turn the mod on or off for sessions you host |
+| `casprep budget [n]` | Loadout budget per player (default 100) |
+| `casprep mult [x]` | Price multiplier (default 1.0) |
+| `casprep window [sec/off]` | Seconds the menu stays available after spawn; `0` or `off` removes the limit (default 300) |
+| `casprep radius [tiles]` | Maximum distance from spawn before the menu closes (default 100) |
+| `casprep cratetime [sec]` | Supply crate lifetime (default 300) |
+| `casprep status` | Show settings and list players with their loadout state |
+| `casprep reset [player/all]` | Let a player pick a loadout again |
+| `casprep cheats` | Show whether cheat rules allow `casprep giveloadout` |
+| `casprep giveloadout [player]` | Open the menu again; needs `sv_cheats` (and `AllowClientCheatCommands` for clients) |
 
-The same settings are stored in `BepInEx/config/com.casprepared.loadout.cfg`.
+### Item rules
 
-## Standalone (single-player) version [HERE](https://github.com/Turianel/Casualties-Prepared/releases/tag/Standalone)
+| Command | Description |
+|---|---|
+| `casprep setprice [item] [price]` | Custom base price per unit, before the multiplier |
+| `casprep resetprice [item/all]` | Back to the trader price |
+| `casprep ban [item]` | Hide an item from the list |
+| `casprep unban [item/all]` | Show a hidden item again |
+| `casprep additem [item] [price]` | Add an item that traders do not sell; the price is optional when the item has a trader price |
+| `casprep removeitem [item]` | Remove an added item |
+| `casprep items` | List custom prices, hidden and added items |
+
+The same settings are stored in `BepInEx/config/com.casprepared.loadout.cfg`, item rules in `BepInEx/config/com.casprepared.loadout.items.json`. Presets are stored per player in `BepInEx/config/CasPrepared.presets.json` (shared by both builds).
+
+## Standalone (single-player) version
 
 `CasPreparedStandalone` is a separate build for single-player runs. It needs only BepInEx and CUCoreLib, not Casualties: Together.
 
@@ -51,11 +71,11 @@ The same settings are stored in `BepInEx/config/com.casprepared.loadout.cfg`.
 - One loadout per run, saved with the run.
 - No time limit: the menu closes only when you move too far from the spawn point or die.
 - On/off switch on the character select screen. Achievements stay enabled.
-- Settings can be changed only outside a run. `casprep_window`, `casprep_reset`, `casprep_cheats` and `casprep_giveloadout` don't exist in this build.
+- Presets and item rules work the same way. Settings and item rules can be changed only outside a run. `casprep window`, `casprep reset`, `casprep cheats` and `casprep giveloadout` don't exist in this build.
 - Install either the multiplayer or the standalone build, not both. With both installed, the standalone build doesn't load.
 - If Together is installed too, the standalone build stays idle during multiplayer sessions.
 
-Settings are stored in `BepInEx/config/com.casprepared.standalone.cfg`.
+Settings are stored in `BepInEx/config/com.casprepared.standalone.cfg`, item rules in `BepInEx/config/com.casprepared.standalone.items.json`.
 
 ## Building
 
@@ -63,6 +83,13 @@ Settings are stored in `BepInEx/config/com.casprepared.standalone.cfg`.
 2. Set `ManualBaseGamePath` in `vars.targets` to your game folder.
 3. Run `dotnet build CasPrepared`. The DLL is copied to `BepInEx/plugins/CasPrepared`.
 4. Standalone: run `dotnet build CasPrepared.Standalone`. Add `-p:DeployStandalone=true` to copy the DLL to `BepInEx/plugins/CasPreparedStandalone` (remove the multiplayer build first).
+
+## Releasing
+
+1. Bump the version in `Plugin.cs` and the `.csproj` of both builds, add a `## <version>` section to `CHANGELOG.md`, commit and push.
+2. Run `python release/release.py <version>` (add `--only multiplayer` or `--only standalone` for one build, `--dry-run` to only build and package).
+3. The script builds both projects, packages the zips into `release/out/<version>/` and creates the GitHub releases `v<version>` and `S-<version>`.
+4. `.github/workflows/publish.yml` then uploads each release to Nexus Mods and Thunderstore (secrets `NEXUS` and `THUNDERSTORE`).
 
 ## License
 MIT, see [LICENSE](LICENSE).

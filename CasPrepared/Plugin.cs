@@ -12,7 +12,7 @@ namespace CasPrepared
     {
         public const string ModGUID = "com.casprepared.loadout";
         public const string ModName = "CasPrepared";
-        public const string ModVersion = "1.0.2";
+        public const string ModVersion = "1.1.0";
 
         internal static new ManualLogSource Logger;
         private readonly Harmony _harmony = new Harmony(ModGUID);
@@ -25,6 +25,8 @@ namespace CasPrepared
             Logger = base.Logger;
 
             ModConfig.Init(Config);
+            ItemRulesStore.Load();
+            LoadoutCatalog.RulesProvider = () => LoadoutClient.ActiveRules;
             SupplyCrate.Register();
             LoadoutServer.Init();
             LoadoutCommands.Register();
@@ -39,6 +41,7 @@ namespace CasPrepared
             {
                 LoadoutServer.Tick();
                 LoadoutClient.Tick();
+                LoadoutUI.RangeTick();
             }
             catch (Exception e)
             {

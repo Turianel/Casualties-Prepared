@@ -18,7 +18,7 @@ namespace CasPrepared
         private const string RuleName = "CasPrepared: Loadout menu";
         private const string TooltipKey = "casprep_rule_enabled";
         private const string Tooltip =
-            "Enables the loadout menu on spawn. Budget, range and other settings: casprep_* console commands.";
+            "Enables the loadout menu on spawn. Budget, range and other settings: 'casprep' console command (casprep help).";
 
         private static bool IsHostMachine => !Net.IsRunning || Net.IsServer;
         // locked mid-campaign without sv_cheats, like the console setters

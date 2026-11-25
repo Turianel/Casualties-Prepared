@@ -17,3 +17,6 @@ obj/
 .idea/
 *.user
 *.suo
+
+# Release packages (release/release.py)
+release/out/

@@ -26,6 +26,13 @@ namespace CasPrepared
         private static Vector2? _lastBodyPos;
 
         public static JObject Status { get; private set; }
+
+        /// <summary>Item rules received from the host (empty until the host sends them).</summary>
+        public static readonly ItemRules RemoteRules = new ItemRules();
+        private static string _remoteRulesHash = string.Empty;
+
+        /// <summary>Clients price and filter the list with the host's rules; host and offline use the local file.</summary>
+        public static ItemRules ActiveRules => Net.IsRunning && !Net.IsServer ? RemoteRules : ItemRulesStore.Local;
         public static float StatusReceivedAt { get; private set; }
         public static bool BuyInFlight { get; private set; }
 
@@ -112,7 +119,7 @@ namespace CasPrepared
                 LoadoutUI.Open();
                 return;
             }
-            Alert(HostLacksMod && !HasStatus ? "The host does not have CasPrepared installed."
+            Alert(HostLacksMod && !HasStatus ? "The host does not have CasPrepared " + Plugin.ModVersion + " installed."
                 : IsDisabled ? "The host has turned the loadout menu off."
                 : State == P.StateUsed ? "Loadout already taken this campaign."
                 : State == P.StateExpired ? "Loadout window has closed."
@@ -123,7 +130,8 @@ namespace CasPrepared
         {
             _statusInFlight = true;
             _statusSentAt = Time.realtimeSinceStartup;
-            if (!Send(P.StatusChannel, new JObject { [P.KeyReady] = true }, OnStatus)) _statusInFlight = false;
+            var payload = new JObject { [P.KeyReady] = true, [P.KeyRulesHash] = Net.IsServer ? ItemRulesStore.Local.Hash : _remoteRulesHash };
+            if (!Send(P.StatusChannel, payload, OnStatus)) _statusInFlight = false;
         }
 
         private static bool LocalLoadingDone()
@@ -184,7 +192,7 @@ namespace CasPrepared
             if (_missedReplies >= MissedRepliesForNoMod && !HostLacksMod)
             {
                 HostLacksMod = true;
-                Alert("The host does not have CasPrepared installed. Loadout menu is unavailable.");
+                Alert("The host does not have CasPrepared " + Plugin.ModVersion + " (missing or another version). Loadout menu is unavailable.");
             }
             if (HostLacksMod) _nextPoll = now + NoModPollInterval;
         }
@@ -217,6 +225,14 @@ namespace CasPrepared
 
         private static void ApplyStatus(JObject status)
         {
+            if (!Net.IsServer && status[P.KeyRules] is JObject rules)
+            {
+                var hash = status.Value<string>(P.KeyRulesHash) ?? string.Empty;
+                RemoteRules.ReplaceWith(rules, hash);
+                _remoteRulesHash = hash;
+                Plugin.Logger.LogInfo($"Item rules from the host: {RemoteRules.Prices.Count} custom prices, {RemoteRules.BannedCount} hidden, {RemoteRules.AddedCount} added.");
+            }
+
             var wasAvailable = IsAvailable;
             Status = status;
             StatusReceivedAt = Time.realtimeSinceStartup;
@@ -276,6 +292,8 @@ namespace CasPrepared
         public static void ResetLocal()
         {
             Status = null;
+            RemoteRules.ReplaceWith(null);
+            _remoteRulesHash = string.Empty;
             _missedReplies = 0;
             HostLacksMod = false;
             _settledSince = -1f;

@@ -186,7 +186,11 @@ namespace CasPrepared
             if (!Net.IsServer) return null;
             var plr = FindPlayer(sender);
             if (payload?.Value<bool?>(P.KeyReady) == true) TryOpenWindow(plr);
-            return BuildStatus(plr);
+            var status = BuildStatus(plr);
+            var rules = ItemRulesStore.Local;
+            status[P.KeyRulesHash] = rules.Hash;
+            if (payload?.Value<string>(P.KeyRulesHash) != rules.Hash) status[P.KeyRules] = rules.ToJson();
+            return status;
         }
 
         /// <summary>

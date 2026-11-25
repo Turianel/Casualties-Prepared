@@ -18,7 +18,7 @@ namespace CasPrepared
         public const string ModGUID = "com.casprepared.standalone";
         public const string MultiplayerGUID = "com.casprepared.loadout";
         public const string ModName = "CasPrepared Standalone";
-        public const string ModVersion = "1.0.2";
+        public const string ModVersion = "1.1.0";
 
         internal static new ManualLogSource Logger;
         private readonly Harmony _harmony = new Harmony(ModGUID);
@@ -31,6 +31,7 @@ namespace CasPrepared
             Logger = base.Logger;
 
             ModConfig.Init(Config);
+            ItemRulesStore.Load();
             SupplyCrate.Register();
             LoadoutClient.Init();
             LoadoutCommands.Register();
@@ -44,6 +45,7 @@ namespace CasPrepared
             try
             {
                 LoadoutClient.Tick();
+                LoadoutUI.RangeTick();
             }
             catch (Exception e)
             {

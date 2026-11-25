@@ -19,7 +19,10 @@ namespace CasPrepared
         private const string AllGroup = "All";
 
         public static bool IsOpen { get; private set; }
-        public static bool IsSearchFocused { get; private set; }
+        /// <summary>A text field of the loadout window (search or preset name) has keyboard focus.</summary>
+        public static bool IsSearchFocused => _searchFocused || PresetPanel.NameFocused;
+        private static bool _searchFocused;
+        private static int _prunedVersion = -1;
 
         private static readonly Dictionary<string, int> Selected = new Dictionary<string, int>();
         private static Rect _window;
@@ -44,7 +47,8 @@ namespace CasPrepared
                 if (!IsOpen) return false;
                 if (IsSearchFocused) return true;
                 var mouse = Input.mousePosition;
-                return _window.Contains(new Vector2(mouse.x, Screen.height - mouse.y));
+                var point = new Vector2(mouse.x, Screen.height - mouse.y);
+                return _window.Contains(point) || PresetPanel.ContainsMouse(point);
             }
         }
 
@@ -58,11 +62,41 @@ namespace CasPrepared
         public static void Close()
         {
             IsOpen = false;
-            IsSearchFocused = false;
+            _searchFocused = false;
             _hovered = _hoveredNext = null;
         }
 
         public static void ClearSelection() => Selected.Clear();
+
+        public static bool HasSelection => Selected.Count > 0;
+
+        public static Dictionary<string, int> SelectionSnapshot() => new Dictionary<string, int>(Selected);
+
+        /// <summary>
+        /// Replaces the selection with a preset. Items missing from the current list are skipped,
+        /// amounts are cut to the per-item and total limits. Returns how many item types were skipped or cut.
+        /// </summary>
+        public static int LoadSelection(IEnumerable<KeyValuePair<string, int>> items)
+        {
+            Selected.Clear();
+            int skipped = 0, total = 0;
+            foreach (var pair in items)
+            {
+                if (pair.Value <= 0) continue;
+                if (!LoadoutCatalog.TryGet(pair.Key, out _))
+                {
+                    skipped++;
+                    continue;
+                }
+                int amount = Mathf.Min(pair.Value, LoadoutCatalog.MaxPerItem, LoadoutCatalog.MaxTotalItems - total);
+                if (amount < pair.Value) skipped++;
+                if (amount <= 0) continue;
+                Selected[pair.Key] = amount;
+                total += amount;
+            }
+            _message = null;
+            return skipped;
+        }
 
         public static void SetMessage(string message) => _message = message;
 
@@ -78,6 +112,7 @@ namespace CasPrepared
             {
                 _window = GUI.Window(WindowId, _window, DrawWindow, GUIContent.none, PixelSkin.Window);
                 _window = ClampToScreen(_window);
+                PresetPanel.Draw(_window);
             }
             finally
             {
@@ -137,7 +172,7 @@ namespace CasPrepared
 
             GUILayout.EndVertical();
 
-            IsSearchFocused = GUI.GetNameOfFocusedControl() == SearchControl;
+            _searchFocused = GUI.GetNameOfFocusedControl() == SearchControl;
             GUI.DragWindow(new Rect(0, 0, 10000, u * 2.2f));
         }
 
@@ -145,8 +180,12 @@ namespace CasPrepared
         {
             GUILayout.BeginHorizontal(GUILayout.Height(u * 1.8f));
             GUILayout.Label("SUPPLY DROP", PixelSkin.Title, GUILayout.ExpandHeight(true));
-            GUILayout.Label("loadout", PixelSkin.Muted, GUILayout.ExpandHeight(true));
+            GUILayout.Label($"[{ModConfig.MenuKey.Value}] toggle menu", PixelSkin.Muted, GUILayout.ExpandHeight(true));
             GUILayout.FlexibleSpace();
+            if (GUILayout.Button(PresetPanel.IsOpen ? "PRESETS <" : "PRESETS >", PresetPanel.IsOpen ? PixelSkin.TabActive : PixelSkin.SmallButton,
+                    GUILayout.Width(u * 6.5f), GUILayout.Height(u * 1.6f)))
+                PresetPanel.Toggle();
+            GUILayout.Space(u * 0.3f);
             if (GUILayout.Button("X", PixelSkin.SmallButton, GUILayout.Width(u * 1.6f), GUILayout.Height(u * 1.6f))) Close();
             GUILayout.EndHorizontal();
         }
@@ -154,6 +193,11 @@ namespace CasPrepared
         private static void DrawStatusStrip(float u, float mult)
         {
             GUILayout.BeginHorizontal(PixelSkin.Inset, GUILayout.Height(u * 1.7f));
+
+            GUILayout.Label("PRICES", PixelSkin.Muted);
+            GUILayout.Label("x" + mult.ToString("0.##", CultureInfo.InvariantCulture),
+                Mathf.Approximately(mult, 1f) ? PixelSkin.Label : PixelSkin.Accent);
+            GUILayout.Space(u);
 
 #if !STANDALONE // standalone has no time limit
             GUILayout.Label("TIME", PixelSkin.Muted);
@@ -171,20 +215,51 @@ namespace CasPrepared
             GUILayout.Space(u);
 #endif
 
-            float max = LoadoutClient.MaxDistance, dist = LoadoutClient.Distance;
-            float frac = max > 0f ? dist / max : 0f;
+            float frac = RangeFraction;
             GUILayout.Label("RANGE", PixelSkin.Muted);
-            GUILayout.Label($"{dist:0.0}/{max:0}",
-                frac > 0.85f ? PixelSkin.Danger : frac > 0.6f ? PixelSkin.Warning : PixelSkin.Label);
-            GUILayout.Space(u);
-
-            GUILayout.Label("PRICES", PixelSkin.Muted);
-            GUILayout.Label("x" + mult.ToString("0.##", CultureInfo.InvariantCulture),
-                Mathf.Approximately(mult, 1f) ? PixelSkin.Label : PixelSkin.Accent);
+            GUILayout.Label($"{LoadoutClient.Distance:0.0}/{LoadoutClient.MaxDistance:0}",
+                frac > 0.85f ? PixelSkin.Danger : frac > RangeWarnFraction ? PixelSkin.Warning : PixelSkin.Label);
 
             GUILayout.FlexibleSpace();
-            GUILayout.Label("stay near your spawn", PixelSkin.Muted);
+            if (frac > RangeWarnFraction) GUILayout.Label(RangeWarning, PixelSkin.Danger);
             GUILayout.EndHorizontal();
+        }
+
+        // ---- range warning ----
+
+        private const float RangeWarnFraction = 0.5f;
+        private const float RangeRearmFraction = 0.4f;
+        private const string RangeWarning = "STAY NEAR YOUR SPAWN";
+        private static bool _rangeWarned;
+
+        private static float RangeFraction
+        {
+            get
+            {
+                float max = LoadoutClient.MaxDistance;
+                return max > 0f ? LoadoutClient.Distance / max : 0f;
+            }
+        }
+
+        /// <summary>
+        /// Called every frame: past half of the allowed range, warn once with a game alert
+        /// when the window is closed (an open window shows the warning in its status strip).
+        /// </summary>
+        public static void RangeTick()
+        {
+            if (!LoadoutClient.IsAvailable)
+            {
+                _rangeWarned = false;
+                return;
+            }
+            float frac = RangeFraction;
+            if (frac < RangeRearmFraction) _rangeWarned = false;
+            else if (frac > RangeWarnFraction && !_rangeWarned)
+            {
+                _rangeWarned = true;
+                if (!IsOpen && PlayerCamera.main != null)
+                    PlayerCamera.main.DoAlert($"Stay near your spawn: the loadout menu closes {LoadoutClient.MaxDistance:0} tiles away.");
+            }
         }
 
         // ---- catalog ----
@@ -275,7 +350,8 @@ namespace CasPrepared
 
             float priceW = u * 4.5f;
             var name = new Rect(icon.xMax + pad, row.y, row.width - icon.width - priceW - pad * 4f, row.height);
-            PixelSkin.FitLabel(name, entry.Name, inCart > 0 ? PixelSkin.ItemNameAccent : PixelSkin.ItemName);
+            PixelSkin.MarqueeLabel(name, entry.Name, inCart > 0 ? PixelSkin.ItemNameAccent : PixelSkin.ItemName,
+                "c:" + entry.Id, row.Contains(Event.current.mousePosition));
             var price = new Rect(row.xMax - priceW - pad, row.y, priceW, row.height);
             GUI.Label(price, UnitPrice(entry, mult), PixelSkin.ItemPrice);
         }
@@ -321,7 +397,8 @@ namespace CasPrepared
 
         private static void DrawSelectedRow(Rect row, CatalogEntry entry, int amount, float mult, float u)
         {
-            if (row.Contains(Event.current.mousePosition)) _hoveredNext = entry;
+            bool hovered = row.Contains(Event.current.mousePosition);
+            if (hovered) _hoveredNext = entry;
             float pad = u * 0.3f;
             float btn = row.height - 2f;
 
@@ -330,26 +407,30 @@ namespace CasPrepared
             if (GUI.Button(plus, "+", PixelSkin.SmallButton)) Add(entry.Id, Event.current.shift ? 5 : 1);
             if (GUI.Button(minus, "-", PixelSkin.SmallButton)) Add(entry.Id, Event.current.shift ? -5 : -1);
 
-            float priceW = u * 3.6f;
+            // fixed columns on the right: [count][price][-][+], sized for "x50" and "9999"
+            EnsureCountStyle();
+            float priceW = PixelSkin.ItemPrice.CalcSize(new GUIContent("9999")).x;
             var price = new Rect(minus.x - priceW - pad, row.y, priceW, row.height);
             GUI.Label(price, LoadoutCatalog.PriceOf(entry, mult, amount).ToString(), PixelSkin.ItemPrice);
 
+            float countW = _countStyle.CalcSize(new GUIContent("x" + LoadoutCatalog.MaxPerItem)).x;
+            var count = new Rect(price.x - countW, row.y, countW, row.height);
+            if (amount > 1) GUI.Label(count, "x" + amount, _countStyle);
+
             var icon = new Rect(row.x + pad, row.y + 2f, row.height - 4f, row.height - 4f);
             PixelSkin.DrawSprite(icon, entry.Icon);
-            var name = new Rect(icon.xMax + pad, row.y, price.x - icon.xMax - pad * 2f, row.height);
-            if (amount > 1)
-            {
-                // keep the count visible: only the name gets cut
-                var countText = new GUIContent("x" + amount);
-                float countW = PixelSkin.ItemNameAccent.CalcSize(countText).x;
-                var nameOnly = new Rect(name.x, name.y, Mathf.Max(0f, name.width - countW), name.height);
-                PixelSkin.FitLabel(nameOnly, entry.Name, PixelSkin.ItemName);
-                GUI.Label(new Rect(nameOnly.xMax, name.y, countW, name.height), countText, PixelSkin.ItemNameAccent);
-            }
-            else
-            {
-                PixelSkin.FitLabel(name, entry.Name, PixelSkin.ItemName);
-            }
+            var name = new Rect(icon.xMax + pad, row.y, count.x - icon.xMax - pad * 2f, row.height);
+            PixelSkin.MarqueeLabel(name, entry.Name, PixelSkin.ItemName, "s:" + entry.Id, hovered);
+        }
+
+        private static GUIStyle _countStyle, _countSource;
+
+        /// <summary>Accent item font, right-aligned (sits next to the price).</summary>
+        private static void EnsureCountStyle()
+        {
+            if (_countStyle != null && _countSource == PixelSkin.ItemNameAccent) return;
+            _countSource = PixelSkin.ItemNameAccent;
+            _countStyle = new GUIStyle(_countSource) { alignment = TextAnchor.MiddleRight };
         }
 
         // ---- footer ----
@@ -358,7 +439,10 @@ namespace CasPrepared
         {
             var text = _hovered == null ? " " :
                 string.IsNullOrEmpty(_hovered.Description) ? _hovered.Name : _hovered.Name + ": " + _hovered.Description;
-            GUILayout.Label(text, PixelSkin.Small, GUILayout.Height(u * 2.1f));
+            GUILayout.BeginVertical(GUILayout.Height(u * 3.6f));
+            if (!string.IsNullOrEmpty(_message)) GUILayout.Label(_message, PixelSkin.Danger);
+            GUILayout.Label(text, PixelSkin.Small, GUILayout.ExpandHeight(true));
+            GUILayout.EndVertical();
         }
 
         private static void DrawFooter(float u, int budget, long cost, int count, bool overBudget)
@@ -393,12 +477,6 @@ namespace CasPrepared
                 LoadoutClient.Buy(new Dictionary<string, int>(Selected));
             }
             GUI.enabled = prev;
-            GUILayout.EndHorizontal();
-
-            GUILayout.BeginHorizontal();
-            if (!string.IsNullOrEmpty(_message)) GUILayout.Label(_message, PixelSkin.Danger);
-            GUILayout.FlexibleSpace();
-            GUILayout.Label($"[{ModConfig.MenuKey.Value}] toggle menu   you can walk while it is open", PixelSkin.Small);
             GUILayout.EndHorizontal();
         }
 
@@ -438,7 +516,15 @@ namespace CasPrepared
 
         private static void RefreshFilter()
         {
-            var key = _group + "\n" + _search + "\n" + LoadoutCatalog.Entries.Count;
+            var entries = LoadoutCatalog.Entries;
+            if (_prunedVersion != LoadoutCatalog.Version && LoadoutCatalog.IsLoaded)
+            {
+                // the host hid or removed items: drop them from the selection
+                _prunedVersion = LoadoutCatalog.Version;
+                foreach (var id in Selected.Keys.ToList())
+                    if (!LoadoutCatalog.TryGet(id, out _)) Selected.Remove(id);
+            }
+            var key = _group + "\n" + _search + "\n" + entries.Count + "\n" + LoadoutCatalog.Version;
             if (_filterKey == key) return;
             _filterKey = key;
             var query = (_search ?? string.Empty).Trim();

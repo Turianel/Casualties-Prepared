@@ -1,0 +1,120 @@
+# Uploads a published GitHub release to Nexus Mods and Thunderstore.
+# Releases are created locally by release/release.py (the build needs the game's assemblies).
+#   tag v1.2.3   -> multiplayer build (CasPrepared)
+#   tag S-1.2.3  -> standalone build (CasPreparedStandalone)
+# Targets (Nexus file ids, Thunderstore names) come from release/packages.json.
+# Secrets: NEXUS (Nexus Mods API key), THUNDERSTORE (Thunderstore service account token).
+name: Publish to Nexus Mods and Thunderstore
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish again (v1.2.3 or S-1.2.3)
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve package
+        id: pkg
+        shell: python
+        run: |
+          import json, os
+          tag = os.environ["TAG"]
+          cfg = json.load(open("release/packages.json", encoding="utf-8"))
+          # longest prefix first: "S-" must win over "v"
+          match = sorted(((k, p) for k, p in cfg["packages"].items() if tag.startswith(p["tag_prefix"])),
+                         key=lambda kp: -len(kp[1]["tag_prefix"]))
+          if not match:
+              raise SystemExit(f"::error::Tag {tag} matches no package prefix")
+          key, p = match[0]
+          version = tag[len(p["tag_prefix"]):]
+          ts = cfg["thunderstore"]
+          # tcli project file, generated from packages.json
+          with open("thunderstore.toml", "w", encoding="utf-8") as f:
+              f.write('[config]\nschemaVersion = "0.0.1"\n\n')
+              f.write(f'[package]\nnamespace = "{ts["namespace"]}"\nname = "{p["thunderstore"]["name"]}"\n')
+              f.write(f'versionNumber = "{version}"\ndescription = "{p["thunderstore"]["description"]}"\n')
+              f.write(f'websiteUrl = "{ts["website_url"]}"\ncontainsNsfwContent = false\n\n')
+              # not used with --file, kept so the project file is complete
+              f.write(f'[build]\nicon = "./{ts["icon"]}"\nreadme = "./{p["thunderstore"]["readme"]}"\noutdir = "./build"\n\n')
+              f.write(f'[publish]\nrepository = "{ts["repository"]}"\ncommunities = ["{ts["community"]}"]\n\n')
+              f.write('[publish.categories]\n' + f'{ts["community"]} = {json.dumps(ts["categories"])}\n')
+          out = {
+              "key": key,
+              "version": version,
+              "nexus_version": tag if p["tag_prefix"] != "v" else version,  # "S-1.2.3" stays prefixed on Nexus
+              "mod_id": cfg["nexus_mod_id"],
+              "file_id": p["nexus_file_id"],
+              "category": p["nexus_category"],
+              "display_name": p["nexus_display_name"],
+              "update_mod_version": str(p["nexus_update_mod_version"]).lower(),
+              "zip": f'{p["assembly"]}-{version}.zip',
+              "ts_zip": f'{p["assembly"]}-{version}-thunderstore.zip',
+              "title": f'{p["release_title"]} {version}',
+          }
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              for k, v in out.items():
+                  f.write(f"{k}={v}\n")
+          print(json.dumps(out, indent=2))
+
+      - name: Download release assets
+        run: |
+          gh release download "$TAG" --pattern '*.zip' --dir .
+          ls -la *.zip
+          test -f "${{ steps.pkg.outputs.zip }}"
+          test -f "${{ steps.pkg.outputs.ts_zip }}"
+
+      - name: Release notes
+        id: notes
+        run: |
+          body=$(gh release view "$TAG" --json body --jq .body)
+          {
+            echo "changelog<<CASPREP_EOF"
+            echo "$body"
+            echo "CASPREP_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload to Nexus Mods
+        uses: Nexus-Mods/upload-action@v1.0.0-beta.11
+        with:
+          api_key: ${{ secrets.NEXUS }}
+          mod_id: ${{ steps.pkg.outputs.mod_id }}
+          file_id: ${{ steps.pkg.outputs.file_id }}
+          filename: ${{ steps.pkg.outputs.zip }}
+          version: ${{ steps.pkg.outputs.nexus_version }}
+          display_name: ${{ steps.pkg.outputs.display_name }}
+          category: ${{ steps.pkg.outputs.category }}
+          description: ${{ steps.pkg.outputs.title }}
+          archive_existing_version: 'true'
+          update_mod_version: ${{ steps.pkg.outputs.update_mod_version }}
+          changelog: ${{ steps.notes.outputs.changelog }}
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Upload to Thunderstore
+        env:
+          TCLI_AUTH_TOKEN: ${{ secrets.THUNDERSTORE }}
+        run: |
+          if [ -z "$TCLI_AUTH_TOKEN" ]; then echo "::error::Secret THUNDERSTORE is empty"; exit 1; fi
+          dotnet tool install --global tcli --version 0.2.3
+          cat thunderstore.toml
+          tcli publish --config-path thunderstore.toml --file "${{ steps.pkg.outputs.ts_zip }}"

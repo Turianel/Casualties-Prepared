@@ -1,0 +1,51 @@
+{
+  "_comment": "Release packages. Read by release/release.py (zips, manifests) and the publish workflow (Nexus / Thunderstore targets).",
+  "nexus_mod_id": 1020,
+  "packages": {
+    "multiplayer": {
+      "project": "CasPrepared",
+      "assembly": "CasPrepared",
+      "tag_prefix": "v",
+      "release_title": "CasPrepared",
+      "nexus_file_id": 8433864,
+      "nexus_category": "main",
+      "nexus_display_name": "CasPrepared",
+      "nexus_update_mod_version": true,
+      "thunderstore": {
+        "name": "CasualtiesPrepared",
+        "readme": "release/thunderstore/README.md",
+        "description": "Addon for Casualties: Together loadout menu once per campaign.",
+        "dependencies": [
+          "BepInEx-BepInExPack-5.4.2305",
+          "CasualtiesTogether-CasualtiesTogether-5.5.4"
+        ]
+      }
+    },
+    "standalone": {
+      "project": "CasPrepared.Standalone",
+      "assembly": "CasPreparedStandalone",
+      "tag_prefix": "S-",
+      "release_title": "CasPrepared Standalone",
+      "nexus_file_id": 8433876,
+      "nexus_category": "optional",
+      "nexus_display_name": "CasPrepared Standalone",
+      "nexus_update_mod_version": false,
+      "thunderstore": {
+        "name": "CasualtiesPreparedStandalone",
+        "readme": "release/thunderstore/README.Standalone.md",
+        "description": "Single-player loadout menu once per run. No Casualties: Together needed.",
+        "dependencies": [
+          "BepInEx-BepInExPack-5.4.2305"
+        ]
+      }
+    }
+  },
+  "thunderstore": {
+    "namespace": "Turianel_mod_team",
+    "website_url": "https://github.com/Turianel/Casualties-Prepared",
+    "icon": "release/thunderstore/icon.png",
+    "repository": "https://thunderstore.io",
+    "community": "casualties-unknown",
+    "categories": ["mods", "ai-generated"]
+  }
+}

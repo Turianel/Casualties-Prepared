@@ -2,10 +2,14 @@ namespace CasPrepared
 {
     internal static class LoadoutProtocol
     {
-        // client -> host request channels (CUCoreLib MultiplayerApi envelope)
-        public const string StatusChannel = "casprepared.status";
-        public const string BuyChannel = "casprepared.buy";
-        public const string GiveChannel = "casprepared.give"; // cheat: grant another loadout window
+        // client -> host request channels (CUCoreLib MultiplayerApi envelope).
+        // The protocol version is part of the channel name: CUCoreLib ignores requests on unknown channels,
+        // so a host and a client on different protocol versions see each other as "no mod" (no answer).
+        // Bump it whenever host and client must agree (1.1: item rules change what a purchase may contain).
+        public const string Version = "v2";
+        public const string StatusChannel = "casprepared." + Version + ".status";
+        public const string BuyChannel = "casprepared." + Version + ".buy";
+        public const string GiveChannel = "casprepared." + Version + ".give"; // cheat: grant another loadout window
 
         // status values
         public const string StateWaiting = "waiting";     // body not spawned yet / not tracked yet
@@ -29,5 +33,8 @@ namespace CasPrepared
         public const string KeyStatus = "status";
         public const string KeyTarget = "target";
         public const string KeyMessage = "message";
+        // item rules sync (1.1): the client sends the hash it has, the host sends the rules when it differs
+        public const string KeyRulesHash = "rulesHash";
+        public const string KeyRules = "rules";
     }
 }
